@@ -46,7 +46,6 @@ class M27Q(MonitorBase):
             return self.clamp_brightness(int(m * 1.8))
 
         def mean(data) -> float:
-            #TODO assert not zero
             return sum(data) / len(data)
 
         def std_dev(data, _mean):

@@ -8,11 +8,10 @@ import serial
 @dataclasses.dataclass
 class Config:
     program_name: str = "Brightify"
-    icon_name: str = "icon.ico"
     current_dir: Path = Path(__file__).parent
     monitors_dir: Path = current_dir.joinpath("monitors")
-    icon_path: Path = current_dir.joinpath(icon_name)
-
+    icon_path: Path = current_dir.joinpath("icon.ico")
+    icon_inv_path: Path = current_dir.joinpath("icon_inv.ico")
     # Serial config:
     sensor_serial_port = "COM3"
     baud_rate = 9600

@@ -16,7 +16,7 @@
 If everything is working, the *Auto* Checkbox for each supported Monitor should now be clickable 
 
 # Remarks
-+ Currently, only Windows is supported, the main part of this app is OS independent
++ Currently, only the Windows task bar icon is supported, the main part of this app is OS independent
 + Feel free to create a pull request and add your own Monitor ;)
 + In case your Monitor is not found, try to enable the `use_libusb` flag in the get_supported_monitors function in [misc.py](misc.py)
 For further information see this [FAQ](https://github.com/pyusb/pyusb/blob/master/docs/faq.rst)

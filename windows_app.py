@@ -104,6 +104,7 @@ class WindowsApp:
     def _on_restart(self, hwnd=None, msg=None, wparam=None, lparam=None):
         self._create_icon()
         self.content = self._init_content()  # the new or updated content
+        hide(self.root)
         return 0
 
     def _on_command(self, hwnd=None, msg=None, wparam=None, lparam=None):

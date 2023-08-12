@@ -10,7 +10,7 @@ from contextlib import ExitStack
 from config import Config
 from misc import Point, get_supported_monitors
 from monitors.monitor_base import MonitorBase
-from ui_misc import hide, CheckBox
+from ui_misc import hide, CheckBox, show
 
 
 @dataclasses.dataclass
@@ -35,10 +35,12 @@ class Content(tk.Frame):
         self.monitors: List[MonitorBase] = []
 
         # configure this frame
+        self.root = root
         self.style = ttkthemes.ThemedStyle()
         self.configure(bg=self.bg_color)
-        self.root = root
-        self.root.bind("<FocusOut>", self.__on_focus_out)
+        self.root.title(config.program_name)
+        self.root.iconbitmap(str(config.icon_inv_path))
+        self.root.bind("<FocusOut>", self.__on_outside_click)
         self.icon_clicked = False
 
         # styles
@@ -65,7 +67,10 @@ class Content(tk.Frame):
         self.sensor_thread = threading.Thread(target=self.__poll_outside_brightness, daemon=True)
         self.sensor_thread.start()
 
-    def __on_focus_out(self, event: tk.Event):
+    def __on_outside_click(self, event: tk.Event):
+        if not self.root.overrideredirect(None):  # if root has buttons, outside click doesn't do anything
+            return
+
         def hide_window():
             if not self.icon_clicked:
                 hide(self.root)
@@ -172,7 +177,7 @@ class Content(tk.Frame):
         self.had_working_sensor = is_enabled
         return state_changed, is_enabled
 
-    def __redraw(self, bottom_right: Optional[Point]=None):
+    def __redraw(self, bottom_right: Optional[Point] = None):
         self.root.attributes("-alpha", 0)  # invisible
         self.pack()
         self.update()  # content size is now known
@@ -181,7 +186,6 @@ class Content(tk.Frame):
             y = bottom_right.y - self.winfo_height()
             self.root.geometry(f"+{x}+{y}")
         self.root.update()
-        hide(self.root)
         self.root.attributes("-alpha", 1)  # visible
 
     def __load_connected_monitors(self):
@@ -197,14 +201,14 @@ class Content(tk.Frame):
             widget.destroy()
         self.__redraw()
 
-    def redraw(self, bottom_right: Point):
+    def redraw(self, bottom_right: Optional[Point] = None):
         self.__load_connected_monitors()
         if len(self.monitors) == 0:
             self.__remove_all_widgets()
+            print("No monitor found")
             return
 
         rows = []
-        self.forget()
 
         # description in top most row
         name_desc_label = ttk.Label(text="DESC", justify="center", style=self.label_heading_style)
@@ -222,7 +226,7 @@ class Content(tk.Frame):
             m_name = ttk.Label(text=m.name(), justify="center", style=self.label_default_style)
             is_managed_tick = CheckBox(None, checked_color=self.accent_color,
                                        unchecked_color=self.bg_color,
-                                       disabled_color=self.text_color)
+                                       disabled_color=self.heading_color)
 
             m_name.grid(in_=self, row=row, column=0, sticky=tk.W, padx=self.pad)
             scale.grid(in_=self, row=row, column=2, sticky=tk.W, padx=self.pad)

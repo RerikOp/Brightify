@@ -3,11 +3,14 @@ import tkinter as tk
 from contextlib import ExitStack
 import platform
 
+from base_app import Content
 from config import Config
 
 
 def main_win32(config: Config, root: tk.Tk):
     from windows_app import WindowsApp
+    root.wm_attributes('-toolwindow', 'True')
+    root.overrideredirect(True)
     with ExitStack() as exit_stack:
         WindowsApp(root, config, exit_stack)
         import win32gui
@@ -15,14 +18,21 @@ def main_win32(config: Config, root: tk.Tk):
         root.mainloop()
 
 
+def main_any(config: Config, root: tk.Tk):
+    with ExitStack() as exit_stack:
+        c = Content(root, config, exit_stack)
+        c.redraw()
+        root.mainloop()
+
+
 if __name__ == '__main__':
     try:
         root = tk.Tk()
-        root.overrideredirect(True)
-        root.wm_attributes('-toolwindow', 'True')
-
+        root.resizable(False, False)
         run_windows = any(platform.win32_ver())
         if run_windows:
             main_win32(Config(), root)
+        else:
+            main_any(Config(), root)
     except KeyboardInterrupt:
         exit()
