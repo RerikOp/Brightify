@@ -26,5 +26,8 @@ class Config:
         """
         data = ser.readline().strip().decode()
         if data != "":  # the readline will return an empty string if device is sleeping.
-            return int(data)
+            try:
+                return int(data)
+            except ValueError:
+                return None
         return None
