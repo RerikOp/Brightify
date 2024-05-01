@@ -1,11 +1,10 @@
 import platform
-import subprocess
 import tkinter as tk
 from contextlib import ExitStack
-from base_app import Content
+from base.base_app import Content
 from config import Config
-from misc import Point
-from ui_misc import show, hide
+from base.misc import Point
+from base.ui_misc import show, hide
 
 if not any(platform.win32_ver()):
     raise RuntimeError("This code is designed to run on Windows only")

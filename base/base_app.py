@@ -4,13 +4,12 @@ from tkinter import ttk
 import tkinter as tk
 import time
 import serial
-import ttkthemes
 from typing import Optional, List, Tuple
 from contextlib import ExitStack
 from config import Config
-from misc import Point, get_supported_monitors
+from base.misc import Point, get_supported_monitors
 from monitors.monitor_base import MonitorBase
-from ui_misc import hide, CheckBox, show
+from base.ui_misc import hide, CheckBox, show
 
 
 @dataclasses.dataclass

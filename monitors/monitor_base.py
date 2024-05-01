@@ -88,7 +88,7 @@ class MonitorBase(ABC):
         Provides thread safe access to get the monitors brightness
         :param blocking: if true, stalls until is_ready() returns True
         :param force: Can be implemented to enable some kind of redundancy etc.
-        :return: the current brightness or None if blocking and is_ready() areFalse
+        :return: the current brightness or None if blocking and is_ready() are False
         """
         pass
 

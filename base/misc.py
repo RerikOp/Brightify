@@ -1,11 +1,10 @@
 import importlib
 import inspect
+import platform
 from collections import namedtuple
 from pathlib import Path
 from typing import List, Tuple, Type
 import usb
-from usb.backend import libusb1
-
 from monitors.monitor_base import MonitorBase
 
 Point = namedtuple('Point', 'x y')
@@ -28,12 +27,11 @@ def invert_ico(icon_path: Path):
     inverted_image.save(output_path, format='ICO', sizes=[image.size])
 
 
-def get_supported_monitors(directory: Path, use_libusb=False) -> List[MonitorBase]:
+def get_supported_monitors(directory: Path, force_libusb: bool = False) -> List[MonitorBase]:
     """
 
     :param directory: the path where the MonitorBase implementations lie
-    :param use_libusb: whether to use libusb (https://pypi.org/project/libusb/). Defaults to False
-     Only enable if your monitor is not found
+    :param force_libusb: if True, force the use of libusb backend
     :return: a list of all MonitorBase implementations instantiated with the corresponding USB Device
     """
     import os
@@ -54,9 +52,16 @@ def get_supported_monitors(directory: Path, use_libusb=False) -> List[MonitorBas
 
     monitor_inst: List[Tuple[Type[MonitorBase], usb.core.Device]] = []
 
-    if use_libusb:
-        back = libusb1.get_backend()
-        devices = usb.core.find(find_all=True, backend=back)
+    if force_libusb or any(platform.win32_ver()):
+        from usb.backend import libusb1
+        backend = libusb1.get_backend()
+        if backend is None:
+            # try using the libusb_package package
+            import libusb_package
+            backend = usb.backend.libusb1.get_backend(find_library=libusb_package.find_library)
+        if backend is None:
+            raise ImportError("libusb backend not found")
+        devices = usb.core.find(find_all=True, backend=backend)
     else:
         devices = usb.core.find(find_all=True)
 

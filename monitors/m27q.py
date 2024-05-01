@@ -39,6 +39,7 @@ class M27Q(MonitorBase):
         return data
 
     def convert_sensor_readings(self, readings) -> Optional[int]:
+        print(readings)
         cv_th = 3
         diff_th = 3
 

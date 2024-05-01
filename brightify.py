@@ -3,12 +3,12 @@ import tkinter as tk
 from contextlib import ExitStack
 import platform
 
-from base_app import Content
+import base.base_app
 from config import Config
 
 
 def main_win32(config: Config, root: tk.Tk):
-    from windows_app import WindowsApp
+    from windows.taskbar_icon import WindowsApp
     root.wm_attributes('-toolwindow', 'True')
     root.overrideredirect(True)
     with ExitStack() as exit_stack:
@@ -20,7 +20,7 @@ def main_win32(config: Config, root: tk.Tk):
 
 def main_any(config: Config, root: tk.Tk):
     with ExitStack() as exit_stack:
-        c = Content(root, config, exit_stack)
+        c = base.base_app.Content(root, config, exit_stack)
         c.redraw()
         root.mainloop()
 
