@@ -1,8 +1,21 @@
 version = 1
 disable_existing_loggers = false
 
-[formatters.default]
-format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+[formatters.console]
+format = "[%(levelname)s]: %(message)s [%(name)s @ %(asctime)s]"
+
+[formatters.json]
+"()" = "base.Brightylog"
+
+[formatters.json.fmt_keys]
+level = "levelname"
+message = "message"
+timestamp = "timestamp"
+logger = "name"
+module = "module"
+function = "funcName"
+line = "lineno"
+thread_name = "threadName"
 
 [handlers.stdout]
 class = "logging.StreamHandler"
@@ -16,6 +29,19 @@ level = "WARNING"
 formatter = "default"
 stream = "ext://sys.stderr"
 
+[handlers.jsonfile]
+class = "logging.handlers.RotatingFileHandler"
+level = "WARNING"
+formatter = "json"
+filename = "logs/brightify.jsonl"
+maxBytes = 10485760 # 10MB
+backupCount = 5
+
+[handlers.queue_handler]
+class = "logging.handlers.QueueHandler"
+handlers = ["jsonfile", "stdout", "stderr"]
+respect_handler_level = true
+
 [loggers.root]
 level = "DEBUG"
-handlers = ["stdout"]
+handlers = ["queue_handler"]

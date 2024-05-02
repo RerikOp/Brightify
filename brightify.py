@@ -1,6 +1,6 @@
+import pprint
 import sys
 import threading
-import tkinter as tk
 from contextlib import ExitStack
 import logging
 import logging.config
@@ -39,6 +39,7 @@ def main_darwin(config: Config):
 def configure_logging():
     with open(Config.root_dir / "res" / "configs" / "log_config.toml", "rb") as f:
         config = toml.load(f)
+        pprint.pprint(config)
         logging.config.dictConfig(config)
     logger.debug("Logging configured")
 
@@ -46,6 +47,7 @@ def configure_logging():
 if __name__ == '__main__':
     _config: Config = Config()
     configure_logging()
+    exit()
     try:
         app = QApplication(sys.argv)
         match _config.host_os:
