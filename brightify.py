@@ -19,10 +19,10 @@ logger = logging.getLogger(Config.app_name)
 
 def main_win(config: Config):
     from windows.WindowsApp import WindowsApp
-    from windows.helpers import get_mode
+    from windows.helpers import get_theme
 
     with ExitStack() as exit_stack:
-        base_app = BaseApp(config, exit_stack, get_mode)
+        base_app = BaseApp(config, exit_stack, get_theme)
         WindowsApp(base_app, config, exit_stack)
         import win32gui
         threading.Thread(target=win32gui.PumpMessages, daemon=True).start()
@@ -53,10 +53,10 @@ def configure_logging():
 
     logger.debug("Logging configured")
 
+
 if __name__ == '__main__':
     _config: Config = Config()
     configure_logging()
-    exit()
     try:
         app = QApplication(sys.argv)
         match _config.host_os:

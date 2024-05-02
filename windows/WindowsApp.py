@@ -1,4 +1,7 @@
 from contextlib import ExitStack
+
+from PyQt6.QtWidgets import QApplication
+
 from base.BaseApp import BaseApp
 from base.Config import Config
 import logging
@@ -92,17 +95,19 @@ class WindowsApp:
 
     def _move_base_app(self):
         _, top, right, _ = win32gui.GetWindowRect(win32gui.FindWindow("Shell_TrayWnd", None))
-        top_left_app = right - self.base_app.width(), top - self.base_app.height()
+        ratio = QApplication.primaryScreen().devicePixelRatio()
+        top_left_app = (int((right / ratio - self.base_app.width())),
+                        int((top / ratio - self.base_app.height())))
         # move the window to the bottom right corner
         self.base_app.move(top_left_app)
+        self.base_app.show()
 
     def _on_restart(self, hwnd=None, msg=None, wparam=None, lparam=None):
-        print("Taskbar restarted")
+        logger.debug("Taskbar restarted")
         self.base_app.redraw()
         self._create_icon()
-        # self.base_app.hide()
-        # self._move_base_app()
-        self.base_app.show()
+        self._move_base_app()
+        self.base_app.hide()
         return 0
 
     def _on_command(self, hwnd=None, msg=None, wparam=None, lparam=None):
@@ -114,12 +119,18 @@ class WindowsApp:
 
     def _on_icon_notify(self, hwnd=None, msg=None, wparam=None, lparam=None):
         x, y = win32gui.GetCursorPos()
+        # FIXME: if hiding the window by unfocusing, the next click on icon hides is again
         if lparam == win32con.WM_LBUTTONUP:
             # toggle visibility of the base app
             if self.base_app.isHidden():
+                logger.debug("Showing and activating the app")
                 self.base_app.show()
-            else:
+                self.base_app.activateWindow()
+            elif not self.base_app.isActiveWindow():
+                logger.debug("Hiding the app")
                 self.base_app.hide()
+
+
         elif lparam == win32con.WM_RBUTTONUP:
             menu = win32gui.CreatePopupMenu()
             win32gui.AppendMenu(menu, win32con.MF_STRING, self.cmd_id_map["Exit"], "Exit")
@@ -140,7 +151,7 @@ class WindowsApp:
         else:
             # get default icon
             hicon = win32gui.LoadIcon(0, win32con.IDI_APPLICATION)
-            # TODO log that the icon was not found
+            logger.critical("Failed to load icon")
 
         flags = win32gui.NIF_ICON | win32gui.NIF_MESSAGE | win32gui.NIF_TIP
         nid = (self.hwnd, 0, flags, self.WM_ICON, hicon, self.config.app_name)
@@ -148,7 +159,7 @@ class WindowsApp:
         try:
             win32gui.Shell_NotifyIcon(win32gui.NIM_ADD, nid)
         except win32gui.error:
-            # TODO log that the icon was not added
+            logger.critical("Failed to add the icon to the system tray")
             pass
 
     def exit(self):

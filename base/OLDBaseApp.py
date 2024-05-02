@@ -6,6 +6,7 @@ from typing import Optional, List, Tuple
 from contextlib import ExitStack
 
 from PyQt6 import QtCore
+from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import QWidget, QMainWindow, QSlider, QCheckBox, QLabel
 
@@ -26,7 +27,7 @@ class MonitorRow:
 
 class BaseApp(QMainWindow):
     def __init__(self, config: Config, exit_stack: ExitStack, parent=None ):
-        super(BaseApp, self).__init__(parent)
+        super(BaseApp, self).__init__(parent, Qt.Tool)
         self.bg_color = "black"
         self.text_color = "white"
         self.heading_color = "grey"
