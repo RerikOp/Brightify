@@ -1,3 +1,4 @@
+import atexit
 import pprint
 import sys
 import threading
@@ -5,6 +6,7 @@ from contextlib import ExitStack
 import logging
 import logging.config
 import tomllib as toml
+from pathlib import Path
 
 from PyQt6.QtWidgets import QApplication
 
@@ -37,12 +39,19 @@ def main_darwin(config: Config):
 
 
 def configure_logging():
+    # make sure logs dir exists
+    log_dir = Path(Config.root_dir) / "logs"
+    log_dir.mkdir(exist_ok=True)
     with open(Config.root_dir / "res" / "configs" / "log_config.toml", "rb") as f:
         config = toml.load(f)
-        pprint.pprint(config)
         logging.config.dictConfig(config)
-    logger.debug("Logging configured")
 
+    queue_handler = logging.getHandlerByName("queue_handler")
+    if queue_handler is not None:
+        queue_handler.listener.start()
+        atexit.register(queue_handler.listener.stop)
+
+    logger.debug("Logging configured")
 
 if __name__ == '__main__':
     _config: Config = Config()

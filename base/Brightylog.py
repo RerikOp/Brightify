@@ -68,7 +68,13 @@ class Brightylog(logging.Formatter):
         return message
 
 
-class NonErrorFilter(logging.Filter):
+class WarningAndAbove(logging.Filter):
     @override
     def filter(self, record: logging.LogRecord) -> bool | logging.LogRecord:
         return record.levelno <= logging.INFO
+
+
+class InfoAndBelow(logging.Filter):
+    @override
+    def filter(self, record: logging.LogRecord) -> bool | logging.LogRecord:
+        return record.levelno > logging.INFO
