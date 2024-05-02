@@ -1,0 +1,21 @@
+[project]
+name = "Brightify"
+version = "0.1.0"
+authors = [
+    { name = "Robin Sehm", email = "brightify@rs-web.net" }
+]
+description = "A tool to control the brightness of your screen."
+
+requires-python = ">= 3.10"
+
+dependencies = [
+    # OS-independent dependencies
+    "platformio",
+    "pyserial",
+    "libusb1",
+    "reactivex",
+    "PyQt6",
+    # Windows-only dependencies
+    'pywin32; platform_system == "Windows"',
+    'libusb>=1.0.26b5; platform_system == "Windows"'
+]

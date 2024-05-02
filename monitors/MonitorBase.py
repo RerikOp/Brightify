@@ -4,20 +4,15 @@ import time
 from abc import ABC, abstractmethod
 from typing import Optional, Iterable
 
-import usb
+import usb1
 
 
 class MonitorBase(ABC):
-    def __init__(self, device: usb.Device, usb_delay_ms: Optional[float] = 100):
-        if device.idProduct != self.pid() or device.idVendor != self.vid():
+    def __init__(self, device: usb1.USBDevice, usb_delay_ms: Optional[float] = 100):
+        if device.getProductID() != self.pid() or device.getVendorID() != self.vid():
             raise RuntimeError("The device passed is not this monitor!")
         self.__device = device
         self.__was_attached = False
-        device: usb.core.Device
-        if sys.platform != "win32" and device.is_kernel_driver_active(0):
-            device.detach_kernel_driver(0)
-            self.__was_attached = True
-        device.set_configuration()
 
         if usb_delay_ms is not None:
             self.usb_delay_ns = usb_delay_ms * 1000000
@@ -79,7 +74,7 @@ class MonitorBase(ABC):
         pass
 
     @property
-    def device(self) -> usb.core.Device:
+    def device(self) -> usb1.USBDevice:
         return self.__device
 
     @abstractmethod

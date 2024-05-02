@@ -1,45 +1,49 @@
 import dataclasses
 import threading
-from tkinter import ttk
-import tkinter as tk
 import time
 import serial
 from typing import Optional, List, Tuple
 from contextlib import ExitStack
+
+from PyQt6 import QtCore
+from PyQt6.QtGui import QIcon
+from PyQt6.QtWidgets import QWidget, QMainWindow, QSlider, QCheckBox, QLabel
+
 from config import Config
 from base.misc import Point, get_supported_monitors
 from monitors.monitor_base import MonitorBase
-from base.ui_misc import hide, CheckBox, show
+from base.ui_misc import hide, show
 
 
 @dataclasses.dataclass
-class Row:
-    name_label: ttk.Label
-    scale: ttk.Scale
-    brightness_label: ttk.Label
-    is_managed_tick: CheckBox
+class MonitorRow:
+    name_label: QLabel
+    slider: QSlider
+    brightness_label: QLabel
+    is_auto_tick: QCheckBox
     monitor: MonitorBase
 
 
-class Content(tk.Frame):
-    def __init__(self, root: tk.Tk, config: Config, exit_stack: ExitStack):
-        super().__init__(master=root)
+class BaseApp(QMainWindow):
+    def __init__(self, config: Config, exit_stack: ExitStack, parent=None ):
+        super(BaseApp, self).__init__(parent)
         self.bg_color = "black"
         self.text_color = "white"
         self.heading_color = "grey"
         self.accent_color = "#007AD9"
         self.pad: int = 15
+
         self.config: Config = config
         self.exit_stack: ExitStack = exit_stack
         self.monitors: List[MonitorBase] = []
 
         # configure this frame
-        self.root = root
-        self.style = ttkthemes.ThemedStyle()
-        self.configure(bg=self.bg_color)
-        self.root.title(config.program_name)
-        self.root.iconbitmap(str(config.icon_inv_path))
-        self.root.bind("<FocusOut>", self.__on_outside_click)
+        self.setWindowTitle(config.program_name)
+        self.setStyleSheet(f"background-color: {self.bg_color}; color: {self.text_color};")
+        self.setWindowIcon(QIcon(str(config.icon_inv_path)))
+        self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowType.FramelessWindowHint)
+
+
         self.icon_clicked = False
 
         # styles

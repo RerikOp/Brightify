@@ -1,13 +1,14 @@
 from typing import List, Optional
 import time
 import usb
+import usb1
 
-from monitors.monitor_base import MonitorBase
+from monitors.MonitorBase import MonitorBase
 
 
 class M27Q(MonitorBase):
 
-    def __init__(self, device: usb.core.Device):
+    def __init__(self, device: usb1.USBDevice):
         super().__init__(device)
 
     @staticmethod

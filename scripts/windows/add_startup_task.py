@@ -1,6 +1,7 @@
 import win32com.client
 from pathlib import Path
 
+
 # must be run as admin
 def create_startup_task(task_name, script_path):
     TASK_TRIGGER_AT_SYSTEMSTART = 8
@@ -36,5 +37,10 @@ def create_startup_task(task_name, script_path):
 
 
 if __name__ == '__main__':
-    bat_file = Path(__file__).parent.joinpath('run.bat')
+    # verify the script is being run as admin
+    import ctypes
+    if not ctypes.windll.shell32.IsUserAnAdmin():
+        raise PermissionError("This script must be run as admin.")
+
+    bat_file = Path(__file__).parent.joinpath("run_brightify.bat")
     create_startup_task('Brightify', bat_file)
