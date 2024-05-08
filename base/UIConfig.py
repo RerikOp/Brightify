@@ -3,44 +3,41 @@ from pathlib import Path
 from typing import Literal
 
 from PyQt6 import QtCore
-from PyQt6.QtGui import QFont
+from PyQt6.QtCore import QPropertyAnimation, QEasingCurve
+from PyQt6.QtGui import QFont, QFontMetrics
 
 from base.Config import Config
-from PyQt6.QtWidgets import QWidget, QMainWindow, QSlider, QCheckBox, QLabel, QHBoxLayout, QSizePolicy
+from PyQt6.QtWidgets import QWidget, QSlider, QCheckBox, QLabel, QHBoxLayout
+
+
+@dataclasses.dataclass
+class Theme:
+    bg_color: str = dataclasses.field(default="#2A2A2A")
+    text_color: str = dataclasses.field(default="white")
+    accent_color: str = dataclasses.field(default="#0078D4")
+    font: str = dataclasses.field(default="Helvetica")
+    font_size: int = dataclasses.field(default=13)
+    mode: Literal["light", "dark"] = dataclasses.field(default="dark")
 
 
 class MonitorRow(QWidget):
-    def __init__(self, parent=None):
+    def __init__(self, theme: Theme, parent=None):
         super(MonitorRow, self).__init__(parent)
-        self.font = QFont('Helvetica', 15)
-
-        self.slider_style_sheet = """
-            QSlider {
-                min-height: 30px;
-                max-height: 30px;
-                min-width: 200px;
-                max-width: 200px;
-            }
-            
-            QSlider::handle:horizontal {
-                border: 10px solid #007AD9;
-            }
-        """
+        self.font = QFont(theme.font, theme.font_size)
 
         # Create components
-        self.name_label = QLabel(self, font=self.font)
+        self.name_label = QLabel(self)
         self.slider = QSlider(self, orientation=QtCore.Qt.Orientation.Horizontal)
-        self.brightness_label = QLabel(self, font=self.font)
+        self.brightness_label = QLabel(self)
         self.is_auto_tick = QCheckBox(self)
 
-        # Set size policy for each widget
-        self.name_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-        self.slider.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-        self.brightness_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-        self.is_auto_tick.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
+        # Set properties
+        self.is_auto_tick.setText("Auto")
+        self.slider.setRange(0, 100)
+        self.slider.setStyleSheet(self.__slider_style(theme))
 
-        # apply style sheet
-        self.slider.setStyleSheet(self.slider_style_sheet)
+        # the brightness label should be 4 characters wide (including the % sign)
+        self.brightness_label.setFixedWidth(QFontMetrics(self.font).horizontalAdvance("100%"))
 
         # Create layout and add components
         layout = QHBoxLayout()
@@ -51,39 +48,50 @@ class MonitorRow(QWidget):
 
         self.setLayout(layout)
 
+    @staticmethod
+    def __slider_style(theme: Theme):
+        return f"""
+            QSlider {{
+                min-height: 30px;
+                max-height: 30px;
+                min-width: 200px;
+                max-width: 200px;
+            }}
+
+            QSlider::handle:horizontal {{
+                border: 10px solid {theme.accent_color};
+            }}
+            """
+
 
 @dataclasses.dataclass
 class UIConfig:
-    # Colors:
-    bg_color: str = dataclasses.field(default="#2A2A2A")
-    text_color: str = dataclasses.field(default="white")
-    heading_color: str = dataclasses.field(default="grey")
-    theme: Literal["dark", "light"] = dataclasses.field(default="dark")
+    # Theme
+    theme: Theme = dataclasses.field(default_factory=Theme)
 
     # Layout:
-    pad: int = 15
+    pad_horizontal: int = 5
+    pad_vertical: int = 10
 
-    # Window properties
-    window_width: int = 450
-    window_height: int = 300
+    # The maximum width of the label in the MonitorRow, or -1 if unbounded
+    max_label_width: int = -1
 
     # Icon
     icon_path: Path = dataclasses.field(default=Config.root_dir / "res" / "assets" / "icon_light.ico")
 
-    # Style Sheets
-    style_sheet: str = dataclasses.field(init=False)
+    animation_duration: int = 100
 
-    def __post_init__(self):
-        self.style_sheet = f"""
-            background-color: {self.bg_color};
-            color: {self.text_color};
+    @property
+    def style_sheet(self):
+        return f"""
+            background-color: {self.theme.bg_color};
+            color: {self.theme.text_color};
         """
 
-
-def dark_theme_ui():
-    return UIConfig()
-
-
-def light_theme_ui():
-    return UIConfig(bg_color="white", text_color="black", heading_color="darkgrey", theme="light",
-                    icon_path=Config.root_dir / "res" / "assets" / "icon_dark.ico")
+    def config_fade_animation(self, fa: QPropertyAnimation,
+                              start_geometry: QtCore.QRect,
+                              end_geometry: QtCore.QRect):
+        fa.setDuration(self.animation_duration)
+        fa.setEasingCurve(QEasingCurve.Type.Linear)
+        fa.setStartValue(start_geometry)
+        fa.setEndValue(end_geometry)

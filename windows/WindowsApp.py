@@ -94,10 +94,11 @@ class WindowsApp:
         return 0
 
     def _move_base_app(self):
+        logger.debug("Moving the base app to the bottom right corner")
         _, top, right, _ = win32gui.GetWindowRect(win32gui.FindWindow("Shell_TrayWnd", None))
         ratio = QApplication.primaryScreen().devicePixelRatio()
-        top_left_app = (int((right / ratio - self.base_app.width())),
-                        int((top / ratio - self.base_app.height())))
+        top_left_app = (int((right / ratio - self.base_app.minimumSizeHint().width())),
+                        int((top / ratio - self.base_app.minimumSizeHint().height())))
         # move the window to the bottom right corner
         self.base_app.move(top_left_app)
         self.base_app.show()
@@ -119,18 +120,8 @@ class WindowsApp:
 
     def _on_icon_notify(self, hwnd=None, msg=None, wparam=None, lparam=None):
         x, y = win32gui.GetCursorPos()
-        # FIXME: if hiding the window by unfocusing, the next click on icon hides is again
         if lparam == win32con.WM_LBUTTONUP:
-            # toggle visibility of the base app
-            if self.base_app.isHidden():
-                logger.debug("Showing and activating the app")
-                self.base_app.show()
-                self.base_app.activateWindow()
-            elif not self.base_app.isActiveWindow():
-                logger.debug("Hiding the app")
-                self.base_app.hide()
-
-
+            self.base_app.change_state("invert")
         elif lparam == win32con.WM_RBUTTONUP:
             menu = win32gui.CreatePopupMenu()
             win32gui.AppendMenu(menu, win32con.MF_STRING, self.cmd_id_map["Exit"], "Exit")
