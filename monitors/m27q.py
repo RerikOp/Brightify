@@ -3,6 +3,7 @@ import time
 import usb1
 
 from monitors.MonitorUSB import MonitorUSB
+from monitors.MonitorBase import logger
 
 
 class M27Q(MonitorUSB):
@@ -28,49 +29,33 @@ class M27Q(MonitorUSB):
 
     def usb_write(self, b_request: int, w_value: int, w_index: int, message: bytes):
         bm_request_type = 0x40
-        if self.device.ctrl_transfer(bm_request_type, b_request, w_value, w_index, message) != len(message):
-            raise IOError("Transferred message length mismatch")
+
+        with usb1.USBContext() as context:
+            handle = context.openByVendorIDAndProductID(self.vid(), self.pid())
+            if handle is None:
+                logger.error("Could not open device")
+                return
+            bytes_sent = handle.controlWrite(bm_request_type, b_request, w_value, w_index, message)
+            if bytes_sent != len(message):
+                logger.error("Transferred message length mismatch")
+
         self.last_interaction_ns = time.time_ns()
 
     def usb_read(self, b_request: int, w_value: int, w_index: int, msg_length: int):
         bm_request_type = 0xC0
-        data = self.device.ctrl_transfer(bm_request_type, b_request, w_value, w_index, msg_length)
-        self.last_interaction_ns = time.time_ns()
-        return data
 
-    def convert_sensor_readings(self, readings) -> Optional[int]:
-        print(readings)
-        cv_th = 3
-        diff_th = 3
+        with usb1.USBContext() as context:
+            handle = context.openByVendorIDAndProductID(self.vid(), self.pid())
 
-        def measurement_to_brightness(m):
-            return self.clamp_brightness(int(m * 1.8))
+            if handle is None:
+                logger.error("Could not open device")
+                return
 
-        def mean(data) -> float:
-            return sum(data) / len(data)
+            data = handle.controlRead(bm_request_type, b_request, w_value, w_index, msg_length)
 
-        def std_dev(data, _mean):
-            squared_diff_sum = sum((x - _mean) ** 2 for x in data)
-            variance = squared_diff_sum / len(data)
-            return variance ** 0.5
+            self.last_interaction_ns = time.time_ns()
 
-        # https://en.wikipedia.org/wiki/Coefficient_of_variation
-        def cv(data):
-            _mean = mean(data)
-            if _mean == 0:
-                return cv_th
-            _std_dev = std_dev(data, _mean)
-            _cv = (_std_dev / _mean) * 100
-            return _cv
-
-        brightnesses = list(map(measurement_to_brightness, readings))
-        potential_brightness = int(mean(brightnesses))
-        if cv(brightnesses) <= cv_th:  # prevents the monitor from changing its brightness in steps
-            current_brightness = self.get_brightness(force=True)
-            if abs(current_brightness - potential_brightness) >= diff_th:  # prevents small changes
-                return potential_brightness
-
-        return None
+            return data
 
     def get_osd(self, data: List[int] | bytearray):
         self.usb_write(

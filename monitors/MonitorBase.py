@@ -1,7 +1,11 @@
 import dataclasses
+import logging
 from abc import ABC, abstractmethod
 from typing import Optional, Iterable
 
+from base.Config import Config
+
+logger = logging.getLogger(Config.app_name)
 
 class MonitorBase(ABC):
     def __init__(self, name: str, min_brightness: int = 0, max_brightness: int = 100):

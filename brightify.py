@@ -1,5 +1,4 @@
 import atexit
-import pprint
 import sys
 import threading
 from contextlib import ExitStack
@@ -23,7 +22,7 @@ def main_win(config: Config):
 
 
     with ExitStack() as exit_stack:
-        base_app = BaseApp(config, exit_stack, get_theme)
+        base_app = BaseApp(config, exit_stack, get_theme, get_internal_monitor)
         WindowsApp(base_app, config, exit_stack)
         import win32gui
         threading.Thread(target=win32gui.PumpMessages, daemon=True).start()

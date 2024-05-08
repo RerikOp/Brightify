@@ -15,6 +15,7 @@ import logging
 
 from base.misc import get_supported_monitors
 from monitors.MonitorBase import MonitorBase
+from monitors.MonitorInternal import MonitorInternal
 
 # use global logger
 logger = logging.getLogger(Config.app_name)
@@ -22,7 +23,7 @@ logger = logging.getLogger(Config.app_name)
 
 class BaseApp(QMainWindow):
     def __init__(self, config: Config, exit_stack: ExitStack,
-                 get_theme: Callable[[], Theme],
+                 theme_cb: Callable[[], Theme], internal_monitor_cb: Callable[[], Optional[MonitorInternal]],
                  parent=None):
         super(BaseApp, self).__init__(parent, Qt.WindowType.Tool)
 
@@ -37,7 +38,8 @@ class BaseApp(QMainWindow):
 
         self.__fade_lock: threading.Lock = threading.Lock()
         self.__top_left: QPoint | None = None
-        self.__get_theme = get_theme
+        self.__get_theme = theme_cb
+        self.__get_internal_monitor = internal_monitor_cb
         self.__monitors: List[MonitorBase] = []
         self.__ui_config: UIConfig = UIConfig()
 
@@ -76,13 +78,15 @@ class BaseApp(QMainWindow):
         self.__monitors.clear()
         self.rows.setSpacing(self.ui_config.pad_horizontal)
         max_label_width = 0
+        monitors: List[MonitorBase] = get_supported_monitors()
+        internal_monitor = self.__get_internal_monitor()
 
-        # if the code is in debug mode, add some random monitors
-        if __debug__:  # pragma: no cover
-            logger.debug("Adding random monitors")
-            for i in range(8):
+        # if no monitors are connected, add random monitors
+        if not monitors and not internal_monitor:  # pragma: no cover
+            logger.info("No monitors connected, running in test mode")
+            for i in range(3):
                 row = MonitorRow(self.ui_config.theme, self)
-                monitor_name = f"Monitor {str(i).zfill(random.randint(1, 5))}"
+                monitor_name = f"Monitor({i})"
                 row.name_label.setText(monitor_name)
                 max_label_width = max(max_label_width, row.name_label.minimumSizeHint().width())
                 self.__config_slider(row)
@@ -90,20 +94,27 @@ class BaseApp(QMainWindow):
                 row.slider.setValue(random.randint(0, 100))
                 self.rows.addWidget(row)
                 row.show()
-        else:
-            for m in get_supported_monitors():
-                self.__monitors.append(m)
-                self.exit_stack.push(m)
-                row = MonitorRow(self.ui_config.theme, self)
-                row.slider.setRange(m.min_brightness, m.max_brightness)
-                row.name_label.setText(m.name)
-                max_label_width = max(max_label_width, row.name_label.minimumSizeHint().width())
-                self.__config_slider(row)
-                self.__config_auto_tick(row)
-                self.__connect_monitor(row, m)
 
-                self.rows.addWidget(row)
-                row.show()
+            return
+
+        if internal_monitor:
+            logger.info("Internal monitor found")
+            monitors.append(internal_monitor)
+        else:
+            logger.info("No internal monitor found")
+
+        for m in monitors:
+            self.__monitors.append(m)
+            self.exit_stack.push(m)
+            row = MonitorRow(self.ui_config.theme, self)
+            row.slider.setRange(m.min_brightness, m.max_brightness)
+            row.name_label.setText(m.name)
+            max_label_width = max(max_label_width, row.name_label.minimumSizeHint().width())
+            self.__config_slider(row)
+            self.__config_auto_tick(row)
+            self.__connect_monitor(row, m)
+            self.rows.addWidget(row)
+            row.show()
 
         # set the minimum width of the name labels to the maximum width over all labels
         for i in range(self.rows.count()):

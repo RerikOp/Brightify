@@ -21,10 +21,12 @@ logger = logging.getLogger("Windows")
 def get_internal_monitor() -> MonitorBase | None:
     import wmi
     c = wmi.WMI(namespace='wmi')
-    methods = c.WmiMonitorBrightnessMethods()[0]
-    # TODO which error is raised if the monitor is not found?
-    if methods is None:
+    methods = None
+    try:
+        methods = c.WmiMonitorBrightnessMethods()[0]
+    except wmi.x_wmi as _:
         return None
+        # TODO which error is raised if the monitor is not found?
 
     internal = MonitorInternal("Internal",
                                lambda: methods.WmiGetBrightness()[0],
