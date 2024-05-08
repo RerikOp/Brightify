@@ -25,9 +25,11 @@ class BaseApp(QMainWindow):
                  get_theme: Callable[[], Theme],
                  parent=None):
         super(BaseApp, self).__init__(parent, Qt.WindowType.Tool)
-        # the internal state of the app, dark mode by default
+
         self.config: Config = config
         self.exit_stack: ExitStack = exit_stack
+
+        # The rows contain one MonitorRow for each supported Monitor connected
         self.rows: QVBoxLayout = QVBoxLayout()
         self.central_widget = QWidget(self)
         self.central_widget.setLayout(self.rows)

@@ -4,7 +4,7 @@ version = "0.1.0"
 authors = [
     { name = "Robin Sehm", email = "brightify@rs-web.net" }
 ]
-description = "A tool to control the brightness of your screen."
+description = "A tool to control the brightness of your screens."
 
 requires-python = ">= 3.11"
 
@@ -16,4 +16,5 @@ dependencies = [
     "PyQt6",
     # Windows-only dependencies
     'pywin32; platform_system == "Windows"',
+    'wmi; platform_system == "Windows"'
 ]

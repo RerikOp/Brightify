@@ -19,7 +19,8 @@ logger = logging.getLogger(Config.app_name)
 
 def main_win(config: Config):
     from windows.WindowsApp import WindowsApp
-    from windows.helpers import get_theme
+    from windows.helpers import get_theme, get_internal_monitor
+
 
     with ExitStack() as exit_stack:
         base_app = BaseApp(config, exit_stack, get_theme)

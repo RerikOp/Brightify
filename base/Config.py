@@ -18,6 +18,3 @@ class Config:
 
     # The lib directory of the project
     lib_dir = os.path.join(sys.prefix, 'Lib')
-
-    # The root logger for the project
-    root_logger = logging.getLogger("Brightify")
