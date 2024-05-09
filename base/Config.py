@@ -15,6 +15,3 @@ class Config:
 
     # The root directory of the project (static)
     root_dir: Path = Path(__file__).parent.parent
-
-    # The lib directory of the project
-    lib_dir = os.path.join(sys.prefix, 'Lib')

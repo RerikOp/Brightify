@@ -23,10 +23,6 @@ class M27Q(MonitorUSB):
     def name():
         return "M27Q"
 
-    @staticmethod
-    def min_num_sensor_readings():
-        return 10
-
     def usb_write(self, b_request: int, w_value: int, w_index: int, message: bytes):
         bm_request_type = 0x40
 
@@ -75,35 +71,28 @@ class M27Q(MonitorUSB):
             message=bytearray([0x6E, 0x51, 0x81 + len(data), 0x03]) + bytearray(data)
         )
 
+    def wait(self):
+        while not self.is_ready():
+            continue
+
     def set_brightness(self, brightness: int, blocking=False, force: bool = False):
-        if not blocking and not self.is_ready():
-            return
         with self.lock:
             brightness = self.clamp_brightness(brightness)
-            if blocking:
-                while not self.is_ready():
-                    continue
+            if force or blocking:
+                self.wait()
                 self.set_osd([0x10, 0x00, brightness])
             else:
                 self.set_osd([0x10, 0x00, brightness])
-                # else don't set and ignore
 
     def get_brightness(self, blocking=False, force: bool = False):
-
-        def wait():
-            while not self.is_ready():
-                continue
-
         with self.lock:
             if force:
-                num_responses = 3
                 responses = []
-                for _ in range(num_responses):
-                    wait()
+                for _ in range(3):
                     responses.append(self.get_osd([0x10]))
                 resp = min(responses)  # For this monitor seems to be correct
             elif blocking:
-                wait()
+                self.wait()
                 resp = self.get_osd([0x10])
             else:
                 if self.is_ready():

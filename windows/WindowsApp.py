@@ -5,6 +5,7 @@ from PyQt6.QtWidgets import QApplication
 from base.BaseApp import BaseApp
 from base.Config import Config
 import logging
+import atexit
 
 if Config.host_os != "Windows":
     raise RuntimeError("This code is designed to run on Windows only")
@@ -22,13 +23,12 @@ logger = logging.getLogger("Windows")
 class WindowsApp:
     # For documentation of objects, see http://timgolden.me.uk/pywin32-docs/objects.html
     # For documentation of functions, see http://timgolden.me.uk/pywin32-docs/win32gui.html
-    def __init__(self, base_app: BaseApp, config: Config, exit_stack: ExitStack):
+    def __init__(self, base_app: BaseApp, config: Config):
         WM_TASKBAR_CREATED = win32gui.RegisterWindowMessage("TaskbarCreated")
         # TODO listen for USB connected
         # to receive messages from the os
         self.WM_ICON = win32con.WM_USER + 42
         self.config = config
-        self.exit_stack = exit_stack
         self.base_app = base_app
 
         self.message_map = {
@@ -90,7 +90,8 @@ class WindowsApp:
         nid = (self.hwnd, 0)
         win32gui.Shell_NotifyIcon(win32gui.NIM_DELETE, nid)
         win32gui.PostQuitMessage(0)  # Terminate the app
-        self.base_app.exit()
+        self.base_app.close()
+        QApplication.exit(0)
         return 0
 
     def _move_base_app(self):

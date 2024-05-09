@@ -5,7 +5,7 @@ from abc import abstractmethod
 from typing import Optional, Iterable
 
 import usb1
-
+import atexit
 from base.Config import Config
 from monitors.MonitorBase import MonitorBase
 
@@ -13,13 +13,14 @@ logger = logging.getLogger(Config.app_name)
 
 
 class MonitorUSB(MonitorBase):
-    def __init__(self, device: usb1.USBDevice, usb_delay_ms: Optional[float] = 100):
+    def __init__(self, device: usb1.USBDevice, usb_delay_ms: Optional[float] = 50):
 
         if device.getProductID() != self.pid() or device.getVendorID() != self.vid():
             logger.warning("The device passed is not this monitor!")
 
         super().__init__(self.name())
 
+        atexit.register(self.__del__)
         self.__device = device
         self.__has_delay = usb_delay_ms is not None
 
@@ -56,3 +57,8 @@ class MonitorUSB(MonitorBase):
     @property
     def device(self) -> usb1.USBDevice:
         return self.__device
+
+    def __del__(self):
+        logger.info(f"Closing monitor {self.name}")
+        self.__device.close()
+        super().__del__()

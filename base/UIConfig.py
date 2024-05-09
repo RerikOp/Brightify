@@ -1,6 +1,6 @@
 import dataclasses
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Optional
 
 from PyQt6 import QtCore
 from PyQt6.QtCore import QPropertyAnimation, QEasingCurve
@@ -8,6 +8,8 @@ from PyQt6.QtGui import QFont, QFontMetrics
 
 from base.Config import Config
 from PyQt6.QtWidgets import QWidget, QSlider, QCheckBox, QLabel, QHBoxLayout
+
+from monitors.MonitorBase import MonitorBase
 
 
 @dataclasses.dataclass
@@ -21,20 +23,23 @@ class Theme:
 
 
 class MonitorRow(QWidget):
-    def __init__(self, theme: Theme, parent=None):
+    def __init__(self, theme: Theme, monitor: Optional[MonitorBase] = None, parent=None):
         super(MonitorRow, self).__init__(parent)
         self.font = QFont(theme.font, theme.font_size)
 
         # Create components
-        self.name_label = QLabel(self)
+        self.name_label = QLabel(self, font=self.font)
         self.slider = QSlider(self, orientation=QtCore.Qt.Orientation.Horizontal)
-        self.brightness_label = QLabel(self)
+        self.brightness_label = QLabel(self, font=self.font)
         self.is_auto_tick = QCheckBox(self)
 
+        # The monitor that this row represents
+        self.monitor: Optional[MonitorBase] = monitor
+
         # Set properties
-        self.is_auto_tick.setText("Auto")
         self.slider.setRange(0, 100)
         self.slider.setStyleSheet(self.__slider_style(theme))
+        self.is_auto_tick.setStyleSheet(self.__checkbox_style(theme))
 
         # the brightness label should be 4 characters wide (including the % sign)
         self.brightness_label.setFixedWidth(QFontMetrics(self.font).horizontalAdvance("100%"))
@@ -59,9 +64,31 @@ class MonitorRow(QWidget):
             }}
 
             QSlider::handle:horizontal {{
-                border: 10px solid {theme.accent_color};
+                background: {theme.accent_color};
+                width: 18px;
+                margin: -2px 0;
+                border-radius: 6px;
             }}
             """
+
+    def __checkbox_style(self, theme: Theme):
+        # checkmark is in the accent color
+        return f"""
+            QCheckBox::indicator::checked {{ 
+                background-color: {theme.accent_color};
+                border: 1px solid {theme.accent_color};
+                width: 20px;
+                height: 20px;
+                border-radius: 5px;
+            }}
+            QCheckBox::indicator::unchecked {{ 
+                background-color: {theme.bg_color};
+                border: 1px solid {theme.accent_color};
+                width: 20px;
+                height: 20px;
+                border-radius: 5px;
+            }}
+        """
 
 
 @dataclasses.dataclass
@@ -71,7 +98,7 @@ class UIConfig:
 
     # Layout:
     pad_horizontal: int = 5
-    pad_vertical: int = 10
+    pad_vertical: int = 25
 
     # The maximum width of the label in the MonitorRow, or -1 if unbounded
     max_label_width: int = -1

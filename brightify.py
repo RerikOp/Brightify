@@ -20,14 +20,14 @@ def main_win(config: Config):
     from windows.WindowsApp import WindowsApp
     from windows.helpers import get_theme, get_internal_monitor
 
-
-    with ExitStack() as exit_stack:
-        base_app = BaseApp(config, exit_stack, get_theme, get_internal_monitor)
-        WindowsApp(base_app, config, exit_stack)
-        import win32gui
-        threading.Thread(target=win32gui.PumpMessages, daemon=True).start()
-        base_app.show()
-        app.exec()
+    base_app = BaseApp(config, get_theme, get_internal_monitor)
+    WindowsApp(base_app, config)
+    import win32gui
+    threading.Thread(target=win32gui.PumpMessages, daemon=True).start()
+    base_app.show()
+    ret_code = app.exec()
+    logger.info(f"Exiting with code {ret_code}")
+    exit(ret_code)
 
 
 def main_linux(config: Config):
