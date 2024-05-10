@@ -133,6 +133,7 @@ class BaseApp(QMainWindow):
         if not self.__sensor_comm.measurements:
             for row in monitor_rows:
                 row.slider.setEnabled(True)  # enable the slider
+                row.is_auto_tick.setChecked(False)  # disable the auto tick
                 row.is_auto_tick.setEnabled(False)  # disable the auto tick
             return
 

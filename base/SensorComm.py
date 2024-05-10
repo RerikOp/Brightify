@@ -44,25 +44,33 @@ class SensorComm(QObject):
                 return None
         return None
 
-    @pyqtSlot()
-    def update(self):
+    def __update(self):
         if not self.has_serial():
-            logger.info("Trying to connect to sensor")
             self.ser = serial.Serial(self.sensor_serial_port, self.baud_rate,
                                      timeout=self.read_timeout_ms / 1000,
                                      write_timeout=self.write_timeout_ms / 1000)
             if self.ser.is_open:
                 logger.info(f"Connected to sensor on {self.sensor_serial_port}")
             else:
-                logger.error("Failed to connect to sensor")
-                self.measurements.clear()
                 return
 
-        # Get the next reading from the sensor
+            # Get the next reading from the sensor
         if (reading := self.get_measurement()) is not None:
             self.measurements.append(reading)
-        # trim the list of measurements to the last num_measurements
+            # trim the list of measurements to the last num_measurements
         self.measurements = self.measurements[-self.num_measurements:]
+
+    @pyqtSlot()
+    def update(self):
+        try:
+            self.__update()
+        # it appears that SerialException or PermissionError is raised when the device is not connected
+        except (serial.SerialException, PermissionError) as e:
+            self.measurements.clear()
+        except Exception as e:
+            logger.error(f"Error while updating sensor: {e}")
+            self.measurements.clear()
+
 
     def has_serial(self) -> bool:
         return self.ser is not None and self.ser.is_open

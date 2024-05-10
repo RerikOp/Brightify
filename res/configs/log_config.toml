@@ -22,6 +22,7 @@ module = "module"
 function = "funcName"
 line = "lineno"
 thread_name = "threadName"
+exc_text = "exc_text"
 
 [handlers.stdout]
 class = "logging.StreamHandler"
@@ -43,10 +44,12 @@ filename = "logs/brightify.log.jsonl"
 maxBytes = 10485760 # 10MB
 backupCount = 5
 
+
 [handlers.queue_handler]
-class = "logging.handlers.QueueHandler"
+class = "base.Brightylog.BrightyQueueHandler"
 handlers = ["jsonfile", "stdout", "stderr"]
 respect_handler_level = true
+
 
 [loggers.root]
 level = "DEBUG"  # progate everything to root

@@ -16,10 +16,15 @@ from base.Config import Config
 logger = logging.getLogger(Config.app_name)
 
 
+def excepthook(exc_type, exc_value, exc_tb):
+    global ret_code
+    logger.exception("An unhandled exception occurred", exc_info=(exc_type, exc_value, exc_tb))
+    ret_code = 1
+
 def main_win(config: Config):
+    global ret_code
     from windows.WindowsApp import WindowsApp
     from windows.helpers import get_theme, get_internal_monitor
-
     base_app = BaseApp(config, get_theme, get_internal_monitor)
     WindowsApp(base_app, config)
     import win32gui
@@ -53,10 +58,30 @@ def configure_logging():
 
     logger.debug("Logging configured")
 
+def find_ddcci_monitors():
+    import monitorcontrol
+    monitors = monitorcontrol.get_monitors()
+
+    set_to = 100
+    for monitor in monitors:
+        with monitor:
+                try:
+                    print(monitor.get_vcp_capabilities())
+                    while monitor.get_luminance() != set_to:
+                        monitor.set_luminance(set_to)
+                    while (caps := monitor.get_vcp_capabilities()) is None:
+                        pass
+                    print(caps)
+                except Exception as e:
+                    print(e)
+
 
 if __name__ == '__main__':
+    #find_ddcci_monitors()
     _config: Config = Config()
     configure_logging()
+    ret_code = 0
+    sys.excepthook = excepthook
     try:
         app = QApplication(sys.argv)
         match _config.host_os:
