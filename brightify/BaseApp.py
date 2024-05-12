@@ -14,7 +14,7 @@ from brightify.UIConfig import MonitorRow
 import logging
 
 from brightify.monitors.MonitorBase import MonitorBase
-from brightify.monitors.MonitorBaseImpl import MonitorBaseImpl
+from brightify.monitors.MonitorDDCCI import MonitorDDCCI
 from brightify.monitors.MonitorUSB import MonitorUSB
 import atexit
 
@@ -58,54 +58,7 @@ def _usb_monitors(monitor_impls: List[Type[MonitorUSB]]) -> List[MonitorUSB]:
 def _ddcci_monitors() -> List[MonitorBase]:
     import monitorcontrol
     monitors = monitorcontrol.get_monitors()
-    supported_monitors = []
-
-    def force_vcp_cap(monitor: monitorcontrol.Monitor) -> Dict:
-        with monitor:
-            for _ in range(10):
-                try:
-                    vcp_cap = monitor.get_vcp_capabilities()
-                    return vcp_cap
-                except monitorcontrol.vcp.vcp_abc.VCPError:
-                    pass
-        return {}
-
-    def get_brightness_cb(monitor: monitorcontrol.Monitor):
-        def get_luminance(blocking, force):
-            max_tries = 1 if not blocking and not force else 10
-            for _ in range(max_tries):
-                with monitor:
-                    try:
-                        return monitor.get_luminance()
-                    except monitorcontrol.vcp.vcp_abc.VCPError:
-                        pass
-            logger.debug(f"Failed to get luminance of CCDDI monitor")
-            return None
-
-        return lambda blocking, force: get_luminance(blocking, force)
-
-    def set_brightness_cb(monitor: monitorcontrol.Monitor):
-        def set_luminance(brightness, blocking, force):
-            max_tries = 1 if not blocking and not force else 10
-            for _ in range(max_tries):
-                with monitor:
-                    try:
-                        monitor.set_luminance(brightness)
-                    except monitorcontrol.vcp.vcp_abc.VCPError:
-                        pass
-            logger.debug(f"Failed to set luminance of CCDDI monitor")
-
-        return lambda brightness, blocking, force: set_luminance(brightness, blocking, force)
-
-    for monitor in monitors:
-        vcp_cap = force_vcp_cap(monitor)
-        name = vcp_cap.get('model', 'Monitor').upper()
-        logger.info(f"Found DDCCI Monitor {name}")
-        mon = MonitorBaseImpl(name,
-                              get_brightness_cb(monitor),
-                              set_brightness_cb(monitor))
-        supported_monitors.append(mon)
-    return supported_monitors
+    return [MonitorDDCCI(monitor) for monitor in monitors]
 
 
 def get_supported_monitors() -> List[MonitorBase]:
@@ -150,6 +103,7 @@ class BaseApp(QMainWindow):
         # Animations:
         self.fade_animation = QPropertyAnimation(self, b"geometry")
         self.fade_animation.finished.connect(lambda: self.__anim_lock.release())
+        self.fade_animation.finished.connect(self.activateWindow)
 
         atexit.register(self.close)
 
@@ -177,13 +131,12 @@ class BaseApp(QMainWindow):
         if initial_brightness is not None:
             row.slider.setValue(initial_brightness)
         else:
-            logger.debug(f"Failed to get brightness of monitor {monitor.name()}")
+            row.slider.setValue(0)
         # for CCDDI monitors, set the brightness after releasing the slider to prevent lag
-        if isinstance(monitor, MonitorBaseImpl):
+        if isinstance(monitor, MonitorDDCCI):
             row.slider.sliderReleased.connect(lambda: monitor.set_brightness(row.slider.value(), force=True))
         if isinstance(monitor, MonitorUSB):
             row.slider.valueChanged.connect(lambda value: monitor.set_brightness(value, force=True))
-
         row.monitor = monitor
 
     def __get_monitor_rows(self) -> Generator[MonitorRow, None, None]:
@@ -211,23 +164,11 @@ class BaseApp(QMainWindow):
                 return
             # disable the slider
             row.slider.setEnabled(False)
-            # lazily set the slider to the current brightness
+            # lazily set the slider to the current brightness or keep it where the user set it
             brightness = row.monitor.convert_sensor_readings(self.__sensor_comm.measurements)
             if brightness is not None:
                 # also sets the brightness label and sends the brightness to the monitor as we connected the slider
                 row.slider.setValue(brightness)
-
-    def __load_test_rows(self):
-        max_label_width = 0
-        for i in range(3):
-            row = MonitorRow(self.ui_config.theme, parent=self)
-            monitor_name = f"Monitor({i})"
-            row.name_label.setText(monitor_name)
-            max_label_width = max(max_label_width, row.name_label.minimumSizeHint().width())
-            self.__config_slider(row)
-            row.slider.setValue(random.randint(0, 100))
-            self.rows.addWidget(row)
-            row.show()
 
     def clear_rows(self):
         while self.rows.count():
@@ -238,18 +179,15 @@ class BaseApp(QMainWindow):
             if widget is not None:
                 widget.deleteLater()
 
+    def __config_checkbox(self, row):
+        row.is_auto_tick.stateChanged.connect(lambda state: self.update_ui_from_sensor())
+
     def __load_rows(self):
         self.clear_rows()
         max_label_width = 0
         monitors: List[MonitorBase] = get_supported_monitors()
-
-        # if no monitors are connected, add some dummy monitors.
-        # Make sure it uses the same code path as the real monitors
         if not monitors:
-            logger.warning(
-                "No monitors were found, running in test mode. "
-                "Try to reconnect the monitor (Really, this works a lot of the time)")
-            self.__load_test_rows()
+            logger.warning("No monitors were found -  try to reconnect the monitor")
             return
 
         for m in monitors:
@@ -259,6 +197,7 @@ class BaseApp(QMainWindow):
             row.name_label.setText(m.name())
             max_label_width = max(max_label_width, row.name_label.minimumSizeHint().width())
             self.__config_slider(row)
+            self.__config_checkbox(row)
             self.__connect_monitor(row, m)
             self.rows.addWidget(row)
             row.show()
@@ -282,6 +221,7 @@ class BaseApp(QMainWindow):
         self.__config_layout()
         self.setStyleSheet(self.ui_config.style_sheet)
         self.__load_rows()
+        # The OS must set the top left corner, and invoke this function
         self.move(self.top_left)
         # start the sensor thread if it is not running
         if not self.__sensor_thread.isRunning():
@@ -299,6 +239,7 @@ class BaseApp(QMainWindow):
             return
         # prevent multiple animations
         if self.__anim_lock.locked():
+            logger.debug("Animation already running")
             return
 
         # lock the animation
@@ -306,16 +247,16 @@ class BaseApp(QMainWindow):
         if new_state == "invert":
             new_state = "show" if self.geometry().topLeft() != self.top_left else "hide"
         # TODO verify that screen rotation does not affect the animation on darwin and linux
-        up = QRect(self.top_left, QPoint(self.top_left.x() + self.width(),
-                                         self.top_left.y() + self.height()))
+        up = QRect(self.top_left, QPoint(self.top_left.x() + self.minimumSizeHint().width(),
+                                         self.top_left.y() + self.minimumSizeHint().height()))
 
-        down = QRect(QPoint(self.top_left.x(), self.top_left.y() + self.height()),
-                     QPoint(self.top_left.x() + self.width(), self.top_left.y() + 2 * self.height()))
+        down = QRect(QPoint(self.top_left.x(), self.top_left.y() + self.minimumSizeHint().height()),
+                     QPoint(self.top_left.x() + self.minimumSizeHint().width(),
+                            self.top_left.y() + 2 * self.height()))
 
         if new_state == "show":
             logger.debug(f"Showing window")
             self.show()
-            self.activateWindow()
             self.ui_config.config_fade_animation(self.fade_animation, down, up)
             self.fade_animation.start()
         else:
@@ -325,7 +266,6 @@ class BaseApp(QMainWindow):
 
     def show(self):
         super().show()
-        self.activateWindow()
 
     def close(self):
         self.__sensor_timer.stop()

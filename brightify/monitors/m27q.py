@@ -87,9 +87,9 @@ class M27Q(MonitorUSB):
         with self.lock:
             if force:
                 responses = []
-                for _ in range(3):
+                for _ in range(7):
                     responses.append(self.get_osd([0x10]))
-                resp = min(responses)  # For this monitor seems to be correct
+                resp = max(set(responses), key=responses.count)
             elif blocking:
                 self.wait()
                 resp = self.get_osd([0x10])

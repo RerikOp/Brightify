@@ -10,6 +10,8 @@ from PyQt6.QtWidgets import QWidget, QSlider, QCheckBox, QLabel, QHBoxLayout
 
 from brightify import root_dir
 from brightify.monitors.MonitorBase import MonitorBase
+from brightify.monitors.MonitorUSB import MonitorUSB
+from brightify.monitors.MonitorDDCCI import MonitorDDCCI
 
 
 @dataclasses.dataclass
@@ -30,13 +32,14 @@ class MonitorRow(QWidget):
         self.font = QFont(theme.font, theme.font_size)
 
         # Create components
+        self.type_label = QLabel(self, font=self.font)
         self.name_label = QLabel(self, font=self.font)
         self.slider = QSlider(self, orientation=QtCore.Qt.Orientation.Horizontal)
         self.brightness_label = QLabel(self, font=self.font)
         self.is_auto_tick = QCheckBox(self)
 
         # The monitor that this row represents
-        self.monitor: Optional[MonitorBase] = monitor
+        self.__monitor: Optional[MonitorBase] = monitor
 
         # Set properties
         self.slider.setRange(0, 100)
@@ -45,15 +48,33 @@ class MonitorRow(QWidget):
 
         # the brightness label should be 4 characters wide (including the % sign)
         self.brightness_label.setFixedWidth(QFontMetrics(self.font).horizontalAdvance("100%"))
+        # The type label should support the longest type name (DDCCI) + brackets
+        self.type_label.setFixedWidth(QFontMetrics(self.font).horizontalAdvance("[DDCCI]"))
 
         # Create layout and add components
         layout = QHBoxLayout()
+        layout.addWidget(self.type_label)
         layout.addWidget(self.name_label)
         layout.addWidget(self.slider)
         layout.addWidget(self.brightness_label)
         layout.addWidget(self.is_auto_tick)
 
         self.setLayout(layout)
+
+    @property
+    def monitor(self):
+        return self.__monitor
+
+    @monitor.setter
+    def monitor(self, value: MonitorBase):
+        self.__monitor = value
+        if isinstance(value, MonitorUSB):
+            self.type_label.setText("[USB]")
+        elif isinstance(value, MonitorDDCCI):
+            self.type_label.setText("[DDCCI]")
+        else:
+            self.type_label.setText("[ANY]")
+
 
     @staticmethod
     def __slider_style(theme: Theme):

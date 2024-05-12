@@ -15,7 +15,7 @@ logger = logging.getLogger(app_name)
 
 
 class MonitorUSB(MonitorBase):
-    def __init__(self, device: usb1.USBDevice, usb_delay_ms: Optional[float] = 50):
+    def __init__(self, device: usb1.USBDevice, usb_delay_ms: Optional[float] = 25):
 
         if device.getProductID() != self.pid() or device.getVendorID() != self.vid():
             logger.warning("The device passed is not this monitor!")

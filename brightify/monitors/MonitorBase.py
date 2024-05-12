@@ -59,6 +59,8 @@ class MonitorBase(ABC):
         brightnesses = list(map(measurement_to_brightness, readings))
         potential_brightness = int(mean(brightnesses))
         current_brightness = self.get_brightness(force=True)
+        if current_brightness is None:
+            return None
         if abs(current_brightness - potential_brightness) >= diff_th:  # prevents small changes
             return potential_brightness
 

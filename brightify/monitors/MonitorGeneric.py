@@ -1,10 +1,9 @@
-from abc import abstractmethod
 from typing import Optional, Callable, override
 
 from brightify.monitors.MonitorBase import MonitorBase
 
 
-class MonitorBaseImpl(MonitorBase):
+class MonitorGeneric(MonitorBase):
     def __init__(self,
                  name_cb: Callable[[], str] | str,
                  get_brightness_cb: Callable[[bool, bool], Optional[int]],
