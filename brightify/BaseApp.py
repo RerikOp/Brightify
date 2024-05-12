@@ -1,6 +1,6 @@
 import random
 import threading
-from typing import List, Tuple, Literal, Callable, Optional, Generator
+from typing import List, Tuple, Type, Callable, Generator, Optional, Literal, Dict
 
 from PyQt6 import QtCore
 from PyQt6.QtCore import QPoint, Qt, QRect, QPropertyAnimation, QTimer, QThread
@@ -14,7 +14,7 @@ from brightify.UIConfig import MonitorRow
 import logging
 
 from brightify.monitors.MonitorBase import MonitorBase
-from brightify.monitors.MonitorInternal import MonitorInternal
+from brightify.monitors.MonitorBaseImpl import MonitorBaseImpl
 from brightify.monitors.MonitorUSB import MonitorUSB
 import atexit
 
@@ -22,13 +22,8 @@ import atexit
 logger = logging.getLogger(app_name)
 
 
-def get_supported_monitors() -> List[MonitorUSB]:
-    """
-    Get all MonitorBase implementations that are supported by the connected USB devices.
-    :return: a list of all MonitorBase implementations instantiated with the corresponding USB Device
-    """
-    import os, importlib, inspect, usb1
-    from typing import Type
+def _supported_usb_impls() -> List[Type[MonitorUSB]]:
+    import os, importlib, inspect
     monitor_impls = set()
     directory = "monitors"
     for filename in os.listdir(root_dir / directory):
@@ -43,29 +38,92 @@ def get_supported_monitors() -> List[MonitorUSB]:
                     monitor_impls.add(obj)
         except ImportError:
             pass
+    return list(monitor_impls)
 
-    logger.info(f"Found {len(monitor_impls)} monitor implementation(s): {monitor_impls}")
 
-    monitor_inst: List[Tuple[Type[MonitorUSB], usb1.USBDevice]] = []
-
+def _usb_monitors(monitor_impls: List[Type[MonitorUSB]]) -> List[MonitorUSB]:
+    import usb1
     context = usb1.USBContext()
     devices = context.getDeviceList(skip_on_error=True)
-
-    logger.info(f"Found {len(devices)} USB device(s)")
-
-    for d in devices:
+    monitor_inst: List[Tuple[Type[MonitorUSB], usb1.USBDevice]] = []
+    for dev in devices:
         for impl in monitor_impls:
-            if impl.vid() == d.getVendorID() and impl.pid() == d.getProductID():
-                monitor_inst.append((impl, d))
+            if impl.vid() == dev.getVendorID() and impl.pid() == dev.getProductID():
+                monitor_inst.append((impl, dev))
                 break
 
-    return [impl(d) for impl, d in monitor_inst]
+    return [impl(dev) for impl, dev in monitor_inst]
+
+
+def _ddcci_monitors() -> List[MonitorBase]:
+    import monitorcontrol
+    monitors = monitorcontrol.get_monitors()
+    supported_monitors = []
+
+    def force_vcp_cap(monitor: monitorcontrol.Monitor) -> Dict:
+        with monitor:
+            for _ in range(10):
+                try:
+                    vcp_cap = monitor.get_vcp_capabilities()
+                    return vcp_cap
+                except monitorcontrol.vcp.vcp_abc.VCPError:
+                    pass
+        return {}
+
+    def get_brightness_cb(monitor: monitorcontrol.Monitor):
+        def get_luminance(blocking, force):
+            max_tries = 1 if not blocking and not force else 10
+            for _ in range(max_tries):
+                with monitor:
+                    try:
+                        return monitor.get_luminance()
+                    except monitorcontrol.vcp.vcp_abc.VCPError:
+                        pass
+            logger.debug(f"Failed to get luminance of CCDDI monitor")
+            return None
+
+        return lambda blocking, force: get_luminance(blocking, force)
+
+    def set_brightness_cb(monitor: monitorcontrol.Monitor):
+        def set_luminance(brightness, blocking, force):
+            max_tries = 1 if not blocking and not force else 10
+            for _ in range(max_tries):
+                with monitor:
+                    try:
+                        monitor.set_luminance(brightness)
+                    except monitorcontrol.vcp.vcp_abc.VCPError:
+                        pass
+            logger.debug(f"Failed to set luminance of CCDDI monitor")
+
+        return lambda brightness, blocking, force: set_luminance(brightness, blocking, force)
+
+    for monitor in monitors:
+        vcp_cap = force_vcp_cap(monitor)
+        name = vcp_cap.get('model', 'Monitor').upper()
+        logger.info(f"Found DDCCI Monitor {name}")
+        mon = MonitorBaseImpl(name,
+                              get_brightness_cb(monitor),
+                              set_brightness_cb(monitor))
+        supported_monitors.append(mon)
+    return supported_monitors
+
+
+def get_supported_monitors() -> List[MonitorBase]:
+    """
+    Finds all user implemented MonitorUSB classes and instantiates them with the corresponding USB device.
+    If a monitor without a USB device is found or an implementation is missing, we try to connect to the monitor via DDC-CI.
+    :return: a list of all MonitorBase implementations
+    """
+    monitor_impls = _supported_usb_impls()
+    usb_monitors = _usb_monitors(monitor_impls)
+    logger.info(f"Found {len(usb_monitors)} USB monitor(s) with implementation: {[m.name() for m in usb_monitors]}")
+    ddcci_monitors = _ddcci_monitors()
+    logger.info(f"Found {len(ddcci_monitors)} DDCCI monitor(s)")
+    return usb_monitors + ddcci_monitors
 
 
 class BaseApp(QMainWindow):
-    def __init__(self, theme_cb: Callable[[], Theme],
-                 internal_monitor_cb: Callable[[], Optional[MonitorInternal]],
-                 parent=None):
+    def __init__(self, theme_cb: Callable[[], Theme], parent=None):
         super(BaseApp, self).__init__(parent, Qt.WindowType.Tool)
 
         # The rows contain one MonitorRow for each supported Monitor connected
@@ -78,7 +136,6 @@ class BaseApp(QMainWindow):
         # Store the top left corner given by the OS
         self.top_left: QPoint | None = None
         self.__get_theme = theme_cb
-        self.__get_internal_monitor = internal_monitor_cb
         self.__ui_config: UIConfig = UIConfig()
         self.__sensor_comm = SensorComm()
 
@@ -116,8 +173,17 @@ class BaseApp(QMainWindow):
 
     @staticmethod
     def __connect_monitor(row: MonitorRow, monitor: MonitorBase):
-        row.slider.setValue(monitor.get_brightness(force=True))
-        row.slider.valueChanged.connect(lambda value: monitor.set_brightness(value, force=True))
+        initial_brightness = monitor.get_brightness(force=True)
+        if initial_brightness is not None:
+            row.slider.setValue(initial_brightness)
+        else:
+            logger.debug(f"Failed to get brightness of monitor {monitor.name()}")
+        # for CCDDI monitors, set the brightness after releasing the slider to prevent lag
+        if isinstance(monitor, MonitorBaseImpl):
+            row.slider.sliderReleased.connect(lambda: monitor.set_brightness(row.slider.value(), force=True))
+        if isinstance(monitor, MonitorUSB):
+            row.slider.valueChanged.connect(lambda value: monitor.set_brightness(value, force=True))
+
         row.monitor = monitor
 
     def __get_monitor_rows(self) -> Generator[MonitorRow, None, None]:
@@ -176,28 +242,21 @@ class BaseApp(QMainWindow):
         self.clear_rows()
         max_label_width = 0
         monitors: List[MonitorBase] = get_supported_monitors()
-        internal_monitor = self.__get_internal_monitor()
 
         # if no monitors are connected, add some dummy monitors.
         # Make sure it uses the same code path as the real monitors
-        if not monitors and not internal_monitor:  # pragma: no cover
+        if not monitors:
             logger.warning(
                 "No monitors were found, running in test mode. "
                 "Try to reconnect the monitor (Really, this works a lot of the time)")
             self.__load_test_rows()
             return
 
-        if internal_monitor:
-            logger.info("Internal monitor found")
-            monitors.append(internal_monitor)
-        else:
-            logger.info("No internal monitor found")
-
         for m in monitors:
-            logger.info(f"Adding monitor: {m.name}")
+            logger.info(f"Adding monitor: {m.name()}")
             row = MonitorRow(self.ui_config.theme, parent=self)
             row.slider.setRange(m.min_brightness, m.max_brightness)
-            row.name_label.setText(m.name)
+            row.name_label.setText(m.name())
             max_label_width = max(max_label_width, row.name_label.minimumSizeHint().width())
             self.__config_slider(row)
             self.__connect_monitor(row, m)

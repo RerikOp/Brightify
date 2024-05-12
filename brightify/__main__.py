@@ -1,9 +1,9 @@
 import atexit
-import sys
 import threading
 import logging
 import logging.config
 import tomllib as toml
+import sys
 
 from PyQt6.QtWidgets import QApplication
 
@@ -15,21 +15,19 @@ logger = logging.getLogger(app_name)
 
 
 def excepthook(exc_type, exc_value, exc_tb):
-    global ret_code
     if exc_type is KeyboardInterrupt:
         logger.info("User interrupted the program, exiting...")
         exit(0)
     logger.exception("An unhandled exception occurred", exc_info=(exc_type, exc_value, exc_tb))
-    ret_code = 1
 
 
 def main_win():
     import win32gui
     global ret_code
     from brightify.windows.WindowsApp import WindowsApp
-    from brightify.windows.helpers import get_theme, get_internal_monitor
+    from brightify.windows.helpers import get_theme #, get_internal_monitor
 
-    base_app = BaseApp(get_theme, get_internal_monitor)
+    base_app = BaseApp(get_theme)
     WindowsApp(base_app)
     threading.Thread(target=win32gui.PumpMessages, daemon=True).start()
     base_app.show()
@@ -60,7 +58,7 @@ def configure_logging():
     logger.debug("Logging configured")
 
 
-def find_ddcci_monitors():
+"""def find_ddcci_monitors():
     import monitorcontrol
     monitors = monitorcontrol.get_monitors()
     set_to = 100
@@ -74,13 +72,11 @@ def find_ddcci_monitors():
                     pass
                 print(caps)
             except Exception as e:
-                print(e)
+                print(e)"""
 
 
 if __name__ == '__main__':
-    # find_ddcci_monitors()
     configure_logging()
-    ret_code = 0
     sys.excepthook = excepthook
     try:
         app = QApplication(sys.argv)

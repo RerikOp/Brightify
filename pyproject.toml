@@ -8,15 +8,13 @@ description = "A tool to control the brightness of your screens."
 
 requires-python = ">= 3.11"
 
-# add manifest file
-
-
 dependencies = [
     # OS-independent dependencies
     "platformio",
     "pyserial",
     "libusb1",
     "PyQt6",
+    "monitorcontrol",
     # Windows-only dependencies
     'pywin32; platform_system == "Windows"',
     'wmi; platform_system == "Windows"'

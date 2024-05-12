@@ -19,8 +19,7 @@ class M27Q(MonitorUSB):
     def pid():
         return 0x8883
 
-    @staticmethod
-    def name():
+    def name(self):
         return "M27Q"
 
     def usb_write(self, b_request: int, w_value: int, w_index: int, message: bytes):

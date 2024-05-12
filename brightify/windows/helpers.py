@@ -4,7 +4,6 @@ from typing import Literal
 from brightify import host_os
 from brightify.UIConfig import Theme
 from brightify.monitors.MonitorBase import MonitorBase
-from brightify.monitors.MonitorInternal import MonitorInternal
 
 if host_os != "Windows":
     raise RuntimeError("This code is designed to run on Windows only")
@@ -19,7 +18,7 @@ except ImportError as e:
 logger = logging.getLogger("Windows")
 
 
-def get_internal_monitor() -> MonitorBase | None:
+"""def get_internal_monitor() -> MonitorBase | None:
     import wmi
     c = wmi.WMI(namespace='wmi')
     methods = None
@@ -29,11 +28,11 @@ def get_internal_monitor() -> MonitorBase | None:
         return None
         # TODO which error is raised if the monitor is not found?
 
-    internal = MonitorInternal("Internal",
+    internal = MonitorBaseImpl("Internal",
                                lambda: methods.WmiGetBrightness()[0],
                                lambda brightness: methods.WmiSetBrightness(brightness, 0))
 
-    return internal
+    return internal"""
 
 
 def get_registry_key(sub_key: str, name: str):
@@ -52,7 +51,7 @@ def get_registry_key(sub_key: str, name: str):
 
 
 def get_color() -> str:
-    logger.debug("Requested accent color form OS")
+    logger.debug("Requested accent color from OS")
     color, reg_type = get_registry_key('Software\\Microsoft\\Windows\\DWM', 'ColorizationColor')
     if color is None:
         color = "#0078D4"

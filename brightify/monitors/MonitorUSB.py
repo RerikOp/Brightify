@@ -20,7 +20,7 @@ class MonitorUSB(MonitorBase):
         if device.getProductID() != self.pid() or device.getVendorID() != self.vid():
             logger.warning("The device passed is not this monitor!")
 
-        super().__init__(self.name())
+        super().__init__()
         # make sure the device is closed on exit
         atexit.register(self.__del__)
         self.__device = device
@@ -51,16 +51,11 @@ class MonitorUSB(MonitorBase):
     def pid() -> int:
         pass
 
-    @staticmethod
-    @abstractmethod
-    def name():
-        pass
-
     @property
     def device(self) -> usb1.USBDevice:
         return self.__device
 
     def __del__(self):
-        logger.info(f"Closing monitor {self.name}")
+        logger.info(f"Closing monitor {self.name()}")
         self.__device.close()
         super().__del__()
