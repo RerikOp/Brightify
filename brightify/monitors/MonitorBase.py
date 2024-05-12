@@ -1,11 +1,10 @@
-import dataclasses
 import logging
 from abc import ABC, abstractmethod
 from typing import Optional, Iterable
 
-from base.Config import Config
+from brightify import app_name
 
-logger = logging.getLogger(Config.app_name)
+logger = logging.getLogger(app_name)
 
 
 class MonitorBase(ABC):

@@ -1,25 +1,25 @@
 import random
 import threading
-from typing import List, Tuple, Literal, Callable, Optional, Dict, Generator
+from typing import List, Tuple, Literal, Callable, Optional, Generator
 
 from PyQt6 import QtCore
 from PyQt6.QtCore import QPoint, Qt, QRect, QPropertyAnimation, QTimer, QThread
 from PyQt6.QtWidgets import QMainWindow, QWidget, QVBoxLayout
 
-from base.Config import Config
-from base.SensorComm import SensorComm
-from base.UIConfig import UIConfig, Theme
-from base.UIConfig import MonitorRow
+from brightify import app_name, root_dir
+from brightify.SensorComm import SensorComm
+from brightify.UIConfig import UIConfig, Theme
+from brightify.UIConfig import MonitorRow
 
 import logging
 
-from monitors.MonitorBase import MonitorBase
-from monitors.MonitorInternal import MonitorInternal
-from monitors.MonitorUSB import MonitorUSB
+from brightify.monitors.MonitorBase import MonitorBase
+from brightify.monitors.MonitorInternal import MonitorInternal
+from brightify.monitors.MonitorUSB import MonitorUSB
 import atexit
 
 # use global logger
-logger = logging.getLogger(Config.app_name)
+logger = logging.getLogger(app_name)
 
 
 def get_supported_monitors() -> List[MonitorUSB]:
@@ -31,11 +31,11 @@ def get_supported_monitors() -> List[MonitorUSB]:
     from typing import Type
     monitor_impls = set()
     directory = "monitors"
-    for filename in os.listdir(Config.root_dir / directory):
+    for filename in os.listdir(root_dir / directory):
         if not filename.endswith(".py"):
             continue
         module_name = filename.replace(".py", "")
-        full_module_name = f"{directory}.{module_name}"
+        full_module_name = f"{__package__}.{directory}.{module_name}"
         try:
             module = importlib.import_module(full_module_name)
             for name, obj in inspect.getmembers(module):
@@ -63,12 +63,10 @@ def get_supported_monitors() -> List[MonitorUSB]:
 
 
 class BaseApp(QMainWindow):
-    def __init__(self, config: Config, theme_cb: Callable[[], Theme],
+    def __init__(self, theme_cb: Callable[[], Theme],
                  internal_monitor_cb: Callable[[], Optional[MonitorInternal]],
                  parent=None):
         super(BaseApp, self).__init__(parent, Qt.WindowType.Tool)
-
-        self.config: Config = config
 
         # The rows contain one MonitorRow for each supported Monitor connected
         self.rows: QVBoxLayout = QVBoxLayout()
@@ -103,7 +101,7 @@ class BaseApp(QMainWindow):
         return self.__ui_config
 
     def __config_layout(self):
-        self.setWindowTitle(self.config.app_name)
+        self.setWindowTitle(app_name)
         self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowType.FramelessWindowHint)
         self.rows.setContentsMargins(self.ui_config.pad_horizontal, self.ui_config.pad_vertical,
                                      self.ui_config.pad_horizontal, self.ui_config.pad_vertical)

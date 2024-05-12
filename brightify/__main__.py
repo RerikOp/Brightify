@@ -1,19 +1,17 @@
 import atexit
 import sys
 import threading
-from contextlib import ExitStack
 import logging
 import logging.config
 import tomllib as toml
-from pathlib import Path
 
 from PyQt6.QtWidgets import QApplication
 
-from base.BaseApp import BaseApp
-from base.Config import Config
+from brightify import app_name, root_dir, host_os
+from brightify.BaseApp import BaseApp
 
 # use global logger
-logger = logging.getLogger(Config.app_name)
+logger = logging.getLogger(app_name)
 
 
 def excepthook(exc_type, exc_value, exc_tb):
@@ -25,14 +23,14 @@ def excepthook(exc_type, exc_value, exc_tb):
     ret_code = 1
 
 
-def main_win(config: Config):
+def main_win():
     import win32gui
     global ret_code
-    from windows.WindowsApp import WindowsApp
-    from windows.helpers import get_theme, get_internal_monitor
+    from brightify.windows.WindowsApp import WindowsApp
+    from brightify.windows.helpers import get_theme, get_internal_monitor
 
-    base_app = BaseApp(config, get_theme, get_internal_monitor)
-    WindowsApp(base_app, config)
+    base_app = BaseApp(get_theme, get_internal_monitor)
+    WindowsApp(base_app)
     threading.Thread(target=win32gui.PumpMessages, daemon=True).start()
     base_app.show()
     ret_code = app.exec()
@@ -40,27 +38,25 @@ def main_win(config: Config):
     exit(ret_code)
 
 
-def main_linux(config: Config):
+def main_linux():
     raise NotImplementedError("Linux not supported yet")
 
 
-def main_darwin(config: Config):
+def main_darwin():
     raise NotImplementedError("MacOS not supported yet")
 
 
 def configure_logging():
     # make sure logs dir exists
-    log_dir = Path(Config.root_dir) / "logs"
+    log_dir = root_dir / "logs"
     log_dir.mkdir(exist_ok=True)
-    with open(Config.root_dir / "res" / "configs" / "log_config.toml", "rb") as f:
+    with open(root_dir / "log_config.toml", "rb") as f:
         config = toml.load(f)
         logging.config.dictConfig(config)
-
     queue_handler = logging.getHandlerByName("queue_handler")
     if queue_handler is not None:
         queue_handler.listener.start()
         atexit.register(queue_handler.listener.stop)
-
     logger.debug("Logging configured")
 
 
@@ -83,24 +79,23 @@ def find_ddcci_monitors():
 
 if __name__ == '__main__':
     # find_ddcci_monitors()
-    _config: Config = Config()
     configure_logging()
     ret_code = 0
     sys.excepthook = excepthook
     try:
         app = QApplication(sys.argv)
-        match _config.host_os:
+        match host_os:
             case "Windows":
                 logger.debug("Running on Windows")
-                main_win(_config)
+                main_win()
             case "Linux":
                 logger.debug("Running on Linux")
-                main_linux(_config)
+                main_linux()
             case "Darwin":
                 logger.debug("Running on MacOS")
-                main_darwin(_config)
+                main_darwin()
             case _:
-                logger.error(f"Unsupported OS: {_config.host_os}")
+                logger.error(f"Unsupported OS: {host_os}")
                 exit(1)
     except KeyboardInterrupt:
         logger.info("User interrupted the program, exiting...")

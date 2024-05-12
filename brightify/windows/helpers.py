@@ -1,11 +1,12 @@
 import logging
-from typing import Literal, Tuple, Optional, Any
-from base.Config import Config
-from base.UIConfig import Theme
-from monitors.MonitorBase import MonitorBase
-from monitors.MonitorInternal import MonitorInternal
+from typing import Literal
 
-if Config.host_os != "Windows":
+from brightify import host_os
+from brightify.UIConfig import Theme
+from brightify.monitors.MonitorBase import MonitorBase
+from brightify.monitors.MonitorInternal import MonitorInternal
+
+if host_os != "Windows":
     raise RuntimeError("This code is designed to run on Windows only")
 try:
     import win32con, win32api, win32gui, win32ui, winerror, winreg

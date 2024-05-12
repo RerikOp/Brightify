@@ -2,14 +2,16 @@ import logging
 import threading
 import time
 from abc import abstractmethod
-from typing import Optional, Iterable
+from typing import Optional
 
 import usb1
 import atexit
-from base.Config import Config
-from monitors.MonitorBase import MonitorBase
 
-logger = logging.getLogger(Config.app_name)
+from brightify import app_name
+from brightify.monitors.MonitorBase import MonitorBase
+
+
+logger = logging.getLogger(app_name)
 
 
 class MonitorUSB(MonitorBase):

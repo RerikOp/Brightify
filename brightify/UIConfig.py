@@ -6,10 +6,10 @@ from PyQt6 import QtCore
 from PyQt6.QtCore import QPropertyAnimation, QEasingCurve
 from PyQt6.QtGui import QFont, QFontMetrics
 
-from base.Config import Config
 from PyQt6.QtWidgets import QWidget, QSlider, QCheckBox, QLabel, QHBoxLayout
 
-from monitors.MonitorBase import MonitorBase
+from brightify import root_dir
+from brightify.monitors.MonitorBase import MonitorBase
 
 
 @dataclasses.dataclass
@@ -99,7 +99,7 @@ class UIConfig:
     max_label_width: int = -1
 
     # Icon
-    icon_path: Path = dataclasses.field(default=Config.root_dir / "res" / "assets" / "icon_light.ico")
+    icon_path: Path = dataclasses.field(default=root_dir / "res" / "icon_light.ico")
 
     animation_duration: int = 100
 

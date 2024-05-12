@@ -1,8 +1,7 @@
-import dataclasses
-from abc import ABC, abstractmethod
-from typing import Optional, Iterable, Callable
+from abc import abstractmethod
+from typing import Optional, Callable
 
-from monitors.MonitorBase import MonitorBase
+from brightify.monitors.MonitorBase import MonitorBase
 
 
 class MonitorInternal(MonitorBase):

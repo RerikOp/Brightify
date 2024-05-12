@@ -4,14 +4,14 @@
    1. On Windows run `./.venv/Scripts/activate`
    2. On Mac or Linux run  `source .venv/bin/activate`
 3. Install dependencies `pip install -r requirements.txt`
-4. (Optional) Add your own implementation of [MonitorBase](monitors/monitor_base.py) for your Monitor
+4. (Optional) Add your own implementation of [MonitorBase](brightify/monitors/monitor_base.py) for your Monitor
 5. Run `python brightify.py`
 6. To exit either right-click the icon and press **Exit** or press **CRTL + C** in the Terminal
 
 # Set up the brightness sensor
 1. Modify the [config](config.py) to match your device and firmware
-2. Modify the code that is polling from the brightness sensor [Device Firmware](sensor_firmware/src)
-3. Modify [platformio.ini](sensor_firmware/platformio.ini) and enter your board (see [supported boards](https://docs.platformio.org/en/latest/boards/index.html))
+2. Modify the code that is polling from the brightness sensor [Device Firmware](brightify/sensor_firmware/src)
+3. Modify [platformio.ini](brightify/sensor_firmware/platformio.ini) and enter your board (see [supported boards](https://docs.platformio.org/en/latest/boards/index.html))
 4. Run `pio run -t upload` in the terminal to upload the firmware to the board.
 If everything is working, the *Auto* Checkbox for each supported Monitor should now be clickable 
 

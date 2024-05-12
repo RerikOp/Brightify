@@ -1,9 +1,9 @@
-from typing import List, Optional
+from typing import List
 import time
 import usb1
 
-from monitors.MonitorUSB import MonitorUSB
-from monitors.MonitorBase import logger
+from brightify.monitors.MonitorUSB import MonitorUSB
+from brightify.monitors.MonitorBase import logger
 
 
 class M27Q(MonitorUSB):

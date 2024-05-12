@@ -8,6 +8,9 @@ description = "A tool to control the brightness of your screens."
 
 requires-python = ">= 3.11"
 
+# add manifest file
+
+
 dependencies = [
     # OS-independent dependencies
     "platformio",

@@ -1,13 +1,12 @@
 import dataclasses
 import logging
 import time
-from typing import Optional, List, Dict
+from typing import Optional, List
 from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
 
 import serial
-import atexit
 
-from base.Config import Config
+from brightify import root_dir
 
 logger = logging.getLogger("SensorComm")
 
@@ -82,7 +81,7 @@ class SensorComm(QObject):
         import subprocess
         logger.info("Flashing firmware")
         pio_command = ["pio", "run", "-t", "upload"]
-        path = Config.root_dir / "sensor_firmware"
+        path = root_dir / "sensor_firmware"
         # run the PlatformIO command in the sensor_firmware directory and wait for it to finish. Don't print the output
         ret = subprocess.run(pio_command, cwd=path, check=True, stdout=subprocess.DEVNULL,
                              stderr=subprocess.DEVNULL)

@@ -1,12 +1,12 @@
 from PyQt6.QtCore import QPoint
 from PyQt6.QtWidgets import QApplication
 
-from base.BaseApp import BaseApp
-from base.Config import Config
+from brightify import host_os, app_name
+from brightify.BaseApp import BaseApp
 import logging
 import atexit
 
-if Config.host_os != "Windows":
+if host_os != "Windows":
     raise RuntimeError("This code is designed to run on Windows only")
 try:
     import win32con, win32api, win32gui, win32ui, winerror, pywintypes
@@ -22,12 +22,11 @@ logger = logging.getLogger("Windows")
 class WindowsApp:
     # For documentation of objects, see http://timgolden.me.uk/pywin32-docs/objects.html
     # For documentation of functions, see http://timgolden.me.uk/pywin32-docs/win32gui.html
-    def __init__(self, base_app: BaseApp, config: Config):
+    def __init__(self, base_app: BaseApp):
         WM_TASKBAR_CREATED = win32gui.RegisterWindowMessage("TaskbarCreated")
         # TODO listen for USB connected
         # to receive messages from the os
         self.WM_ICON = win32con.WM_USER + 42
-        self.config = config
         self.base_app = base_app
 
         self.message_map = {
@@ -52,7 +51,7 @@ class WindowsApp:
         style = win32con.WS_OVERLAPPED | win32con.WS_SYSMENU
         self.hwnd = win32gui.CreateWindow(
             wc.lpszClassName,  # className
-            self.config.app_name,  # windowTitle
+            app_name,  # windowTitle
             style,  # style
             0,  # x
             0,  # y
@@ -78,7 +77,7 @@ class WindowsApp:
     def _window_class(self):
         # Configuration for the window
         wc = win32gui.WNDCLASS()
-        wc.lpszClassName = self.config.app_name
+        wc.lpszClassName = app_name
         wc.style = win32con.CS_VREDRAW | win32con.CS_HREDRAW
         wc.hCursor = win32api.LoadCursor(0, win32con.IDC_ARROW)
         wc.hbrBackground = win32con.COLOR_WINDOW
@@ -144,7 +143,7 @@ class WindowsApp:
             logger.critical("Failed to load icon")
 
         flags = win32gui.NIF_ICON | win32gui.NIF_MESSAGE | win32gui.NIF_TIP
-        nid = (self.hwnd, 0, flags, self.WM_ICON, hicon, self.config.app_name)
+        nid = (self.hwnd, 0, flags, self.WM_ICON, hicon, app_name)
 
         try:
             win32gui.Shell_NotifyIcon(win32gui.NIM_ADD, nid)

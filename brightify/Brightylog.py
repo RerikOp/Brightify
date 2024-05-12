@@ -1,12 +1,8 @@
 import copy
 import datetime as dt
-import io
 import json
 import logging
-import traceback
-from pprint import pprint
-from types import TracebackType
-from typing import override, Tuple, Type
+from typing import override
 from logging import handlers
 
 LOG_RECORD_BUILTIN_ATTRS = {
