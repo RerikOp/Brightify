@@ -87,8 +87,6 @@ class BaseApp(QMainWindow):
         self.__sensor_thread = QThread()
         self.__sensor_comm.moveToThread(self.__sensor_thread)
 
-        atexit.register(self.__sensor_thread.quit)
-
         self.__sensor_timer = QTimer(self)
         self.__sensor_timer.timeout.connect(self.__sensor_comm.update_signal.emit)
         self.__sensor_timer.timeout.connect(self.update_ui_from_sensor)
@@ -96,6 +94,8 @@ class BaseApp(QMainWindow):
         # Animations:
         self.fade_animation = QPropertyAnimation(self, b"geometry")
         self.fade_animation.finished.connect(lambda: self.__anim_lock.release())
+
+        atexit.register(self.close)
 
     @property
     def ui_config(self) -> UIConfig:
@@ -274,5 +274,9 @@ class BaseApp(QMainWindow):
             self.fade_animation.start()
 
     def close(self):
+        self.__sensor_timer.stop()
+        self.__sensor_comm.__del__()
+        self.__sensor_thread.quit()
+
         logger.info("Closing app")
         super().close()

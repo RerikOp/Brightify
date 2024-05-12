@@ -1,5 +1,6 @@
 import dataclasses
 import logging
+import time
 from typing import Optional, List, Dict
 from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
 
@@ -21,11 +22,11 @@ class SensorComm(QObject):
     measurements: List[int] = dataclasses.field(default_factory=list, init=False)
     ser: Optional[serial.Serial] = dataclasses.field(default=None, init=False)
     update_signal: pyqtSignal = dataclasses.field(default=pyqtSignal(), init=False)
+    is_reading: bool = dataclasses.field(default=False, init=False)
 
     def __post_init__(self):
         super().__init__()
-        atexit.register(self.__del__)
-        #self.flash_firmware()
+        # self.flash_firmware()
         self.update_signal.connect(self.update)
 
     def get_measurement(self) -> Optional[int]:
@@ -62,15 +63,17 @@ class SensorComm(QObject):
 
     @pyqtSlot()
     def update(self):
+        self.is_reading = True
         try:
             self.__update()
         # it appears that SerialException or PermissionError is raised when the device is not connected
-        except (serial.SerialException, PermissionError) as e:
+        except (serial.SerialException, PermissionError) as _:
             self.measurements.clear()
         except Exception as e:
-            logger.error(f"Error while updating sensor: {e}")
+            logger.error(f"Error while updating sensor: {e}", exc_info=e)
             self.measurements.clear()
-
+        finally:
+            self.is_reading = False
 
     def has_serial(self) -> bool:
         return self.ser is not None and self.ser.is_open
@@ -90,6 +93,8 @@ class SensorComm(QObject):
 
     def __del__(self):
         if self.has_serial():
+            while self.is_reading:
+                time.sleep(0.1)
             try:
                 self.ser.close()
                 logger.info("Closed serial connection")

@@ -1,5 +1,3 @@
-from contextlib import ExitStack
-
 from PyQt6.QtWidgets import QApplication
 
 from base.BaseApp import BaseApp
@@ -10,7 +8,7 @@ import atexit
 if Config.host_os != "Windows":
     raise RuntimeError("This code is designed to run on Windows only")
 try:
-    import win32con, win32api, win32gui, win32ui, winerror
+    import win32con, win32api, win32gui, win32ui, winerror, pywintypes
 except ModuleNotFoundError:
     raise RuntimeError("This code is designed to run with pywin32")
 except ImportError as e:
@@ -74,6 +72,8 @@ class WindowsApp:
         # initialize the icon
         self._on_restart()
 
+        atexit.register(self.exit)
+
     def _window_class(self):
         # Configuration for the window
         wc = win32gui.WNDCLASS()
@@ -90,7 +90,6 @@ class WindowsApp:
         nid = (self.hwnd, 0)
         win32gui.Shell_NotifyIcon(win32gui.NIM_DELETE, nid)
         win32gui.PostQuitMessage(0)  # Terminate the app
-        self.base_app.close()
         QApplication.exit(0)
         return 0
 
@@ -156,5 +155,9 @@ class WindowsApp:
 
     def exit(self):
         exit_id = self.cmd_id_map["Exit"]
-        # invoke default exit behavior
-        self.cmd_id_map[exit_id]()
+        try: # invoke the exit function
+            self.cmd_id_map[exit_id]()
+        except pywintypes.error as e:
+            if e.winerror != 1400:  # ERROR_INVALID_WINDOW_HANDLE
+                raise e
+

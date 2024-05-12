@@ -19,7 +19,7 @@ class MonitorUSB(MonitorBase):
             logger.warning("The device passed is not this monitor!")
 
         super().__init__(self.name())
-
+        # make sure the device is closed on exit
         atexit.register(self.__del__)
         self.__device = device
         self.__has_delay = usb_delay_ms is not None
