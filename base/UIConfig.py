@@ -17,6 +17,8 @@ class Theme:
     bg_color: str = dataclasses.field(default="#2A2A2A")
     text_color: str = dataclasses.field(default="white")
     accent_color: str = dataclasses.field(default="#0078D4")
+    # border color is slightly darker than bg_color
+    border_color: str = dataclasses.field(default="#292929")
     font: str = dataclasses.field(default="Helvetica")
     font_size: int = dataclasses.field(default=13)
     mode: Literal["light", "dark"] = dataclasses.field(default="dark")
@@ -61,13 +63,6 @@ class MonitorRow(QWidget):
                 max-height: 30px;
                 min-width: 200px;
                 max-width: 200px;
-            }}
-
-            QSlider::handle:horizontal {{
-                background: {theme.accent_color};
-                width: 18px;
-                margin: -2px 0;
-                border-radius: 6px;
             }}
             """
 

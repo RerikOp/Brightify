@@ -77,7 +77,8 @@ class BaseApp(QMainWindow):
         self.setCentralWidget(self.central_widget)
 
         self.__anim_lock: threading.Lock = threading.Lock()
-        self.__top_left: QPoint | None = None
+        # Store the top left corner given by the OS
+        self.top_left: QPoint | None = None
         self.__get_theme = theme_cb
         self.__get_internal_monitor = internal_monitor_cb
         self.__ui_config: UIConfig = UIConfig()
@@ -169,7 +170,7 @@ class BaseApp(QMainWindow):
             widget = self.rows.takeAt(0).widget()
             if isinstance(widget, MonitorRow):
                 if widget.monitor is not None:
-                    widget.monitor.__del__()   # delete the monitor object
+                    widget.monitor.__del__()  # delete the monitor object
             if widget is not None:
                 widget.deleteLater()
 
@@ -219,32 +220,24 @@ class BaseApp(QMainWindow):
 
     def redraw(self):
         logger.debug("Redrawing the app")
+        self.hide()
         self.__update_theme()
         self.__config_layout()
         self.setStyleSheet(self.ui_config.style_sheet)
         self.__load_rows()
+        self.move(self.top_left)
         # start the sensor thread if it is not running
         if not self.__sensor_thread.isRunning():
+            logger.debug("Starting sensor thread")
             self.__sensor_thread.start()
         # start the sensor timer if it is not running
         if not self.__sensor_timer.isActive():
+            logger.debug("Starting sensor timer")
             self.__sensor_timer.start(500)
-
-    def move(self, a0: QPoint | Tuple[int, int]) -> None:
-        if isinstance(a0, Tuple) and len(a0) == 2 and isinstance(a0[0], int) and isinstance(a0[1], int):
-            x, y = a0
-            dest = QPoint(x, y)
-        elif isinstance(a0, QPoint):
-            dest = a0
-        else:
-            logger.warning(f"Unexpected type {type(a0)}")
-            return
-        # store the top left corner for the animation
-        self.__top_left = dest
-        return super().move(dest)
+        self.show()
 
     def change_state(self, new_state: Literal["show", "hide", "invert"] = "invert"):
-        if self.__top_left is None:
+        if self.top_left is None:
             logger.error("Top left corner not set")
             return
         # prevent multiple animations
@@ -254,13 +247,13 @@ class BaseApp(QMainWindow):
         # lock the animation
         self.__anim_lock.acquire()
         if new_state == "invert":
-            new_state = "show" if self.geometry().topLeft() != self.__top_left else "hide"
+            new_state = "show" if self.geometry().topLeft() != self.top_left else "hide"
         # TODO verify that screen rotation does not affect the animation on darwin and linux
-        up = QRect(self.__top_left, QPoint(self.__top_left.x() + self.width(),
-                                           self.__top_left.y() + self.height()))
+        up = QRect(self.top_left, QPoint(self.top_left.x() + self.width(),
+                                         self.top_left.y() + self.height()))
 
-        down = QRect(QPoint(self.__top_left.x(), self.__top_left.y() + self.height()),
-                     QPoint(self.__top_left.x() + self.width(), self.__top_left.y() + 2 * self.height()))
+        down = QRect(QPoint(self.top_left.x(), self.top_left.y() + self.height()),
+                     QPoint(self.top_left.x() + self.width(), self.top_left.y() + 2 * self.height()))
 
         if new_state == "show":
             logger.debug(f"Showing window")
@@ -272,6 +265,10 @@ class BaseApp(QMainWindow):
             logger.debug(f"Hiding window")
             self.ui_config.config_fade_animation(self.fade_animation, up, down)
             self.fade_animation.start()
+
+    def show(self):
+        super().show()
+        self.activateWindow()
 
     def close(self):
         self.__sensor_timer.stop()

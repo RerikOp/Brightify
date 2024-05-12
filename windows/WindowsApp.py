@@ -1,3 +1,4 @@
+from PyQt6.QtCore import QPoint
 from PyQt6.QtWidgets import QApplication
 
 from base.BaseApp import BaseApp
@@ -93,21 +94,18 @@ class WindowsApp:
         QApplication.exit(0)
         return 0
 
-    def _move_base_app(self):
-        logger.debug("Moving the base app to the bottom right corner")
+    def _update_top_left(self):
         _, top, right, _ = win32gui.GetWindowRect(win32gui.FindWindow("Shell_TrayWnd", None))
         ratio = QApplication.primaryScreen().devicePixelRatio()
-        top_left_app = (int((right / ratio - self.base_app.minimumSizeHint().width())),
-                        int((top / ratio - self.base_app.minimumSizeHint().height())))
-        # move the window to the bottom right corner
-        self.base_app.move(top_left_app)
-        self.base_app.show()
+        x, y = (int((right / ratio - self.base_app.minimumSizeHint().width())),
+                int((top / ratio - self.base_app.minimumSizeHint().height())))
+        self.base_app.top_left = QPoint(x, y)
 
     def _on_restart(self, hwnd=None, msg=None, wparam=None, lparam=None):
         logger.debug("Taskbar restarted")
+        self._update_top_left()
         self.base_app.redraw()
         self._create_icon()
-        self._move_base_app()
         self.base_app.hide()
         return 0
 
@@ -121,6 +119,7 @@ class WindowsApp:
     def _on_icon_notify(self, hwnd=None, msg=None, wparam=None, lparam=None):
         x, y = win32gui.GetCursorPos()
         if lparam == win32con.WM_LBUTTONUP:
+            self._update_top_left()
             self.base_app.change_state("invert")
         elif lparam == win32con.WM_RBUTTONUP:
             menu = win32gui.CreatePopupMenu()
@@ -155,9 +154,8 @@ class WindowsApp:
 
     def exit(self):
         exit_id = self.cmd_id_map["Exit"]
-        try: # invoke the exit function
+        try:  # invoke the exit function
             self.cmd_id_map[exit_id]()
         except pywintypes.error as e:
             if e.winerror != 1400:  # ERROR_INVALID_WINDOW_HANDLE
                 raise e
-
