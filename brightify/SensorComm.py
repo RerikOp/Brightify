@@ -36,12 +36,14 @@ class SensorComm(QObject):
         """
         if not self.has_serial():
             return None
-        data = self.ser.readline().strip().decode("utf-8")
-        if data != "":  # the readline will return an empty string if device is sleeping.
-            try:
-                return int(data)
-            except ValueError:
-                return None
+        # check if serial is ready to read
+        if self.ser.in_waiting:
+            data = self.ser.readline().strip().decode("utf-8")
+            if data != "":  # the readline will return an empty string if device is sleeping.
+                try:
+                    return int(data)
+                except ValueError:
+                    return None
         return None
 
     def __update(self):
