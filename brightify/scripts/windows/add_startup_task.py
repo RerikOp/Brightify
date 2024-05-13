@@ -1,3 +1,5 @@
+import sys
+
 import win32com.client
 from pathlib import Path
 
@@ -37,9 +39,8 @@ def create_startup_task(task_name, script_path):
 
 
 def create_bat_file(bat_file: Path):
-    text = f"""
-    @echo off
-    python {Path(__file__).parent.joinpath("brightify.py")}
+    text = f"""@echo off
+    python -m brightify
     """
     with open(bat_file, 'w+') as f:
         f.write(text)
@@ -48,10 +49,19 @@ def create_bat_file(bat_file: Path):
 if __name__ == '__main__':
     # verify the script is being run as admin
     import ctypes
-
+    this_dir = Path(__file__).parent
     if not ctypes.windll.shell32.IsUserAnAdmin():
-        raise PermissionError("This script must be run as admin.")
+        print("This script must be run as admin, elevating...")
+        # elevate the script
+        ctypes.windll.shell32.ShellExecuteW(None,  # hwnd
+                                            "runas",  # operation
+                                            sys.executable,  # file
+                                            str(Path(__file__)),  # parameters
+                                            str(this_dir),  # directory
+                                            1  # show cmd window
+                                            )
+        exit(0)
 
-    bat_file = Path(__file__).parent.joinpath("run_brightify.bat")
+    bat_file = this_dir / "run_brightify.bat"
     create_bat_file(bat_file)
     create_startup_task('Brightify', bat_file)
