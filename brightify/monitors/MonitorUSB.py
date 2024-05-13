@@ -56,6 +56,8 @@ class MonitorUSB(MonitorBase):
         return self.__device
 
     def __del__(self):
-        logger.info(f"Closing monitor {self.name()}")
-        self.__device.close()
-        super().__del__()
+        if self.__device is not None:
+            logger.info(f"Closing monitor {self.name()}")
+            self.__device.close()
+            self.__device = None
+            super().__del__()

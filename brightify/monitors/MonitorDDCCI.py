@@ -1,9 +1,10 @@
-from typing import Optional, Callable, override, Dict
+from typing import Optional, override, Dict
 
 import monitorcontrol
 
 from brightify.monitors.MonitorBase import MonitorBase
 from brightify.monitors.MonitorBase import logger
+
 
 # TODO is an internal Monitor also connected via DDCCI?
 class MonitorDDCCI(MonitorBase):
@@ -15,7 +16,8 @@ class MonitorDDCCI(MonitorBase):
         self.max_tries = 10
         # Try to get the VCP capabilities
         self.vcp_cap = self.__vcp_cap()
-        self.__name = self.vcp_cap.get('model', 'Monitor').upper()
+        self.__name = self.vcp_cap.get('model', MonitorDDCCI.default_name())
+        self.is_unknown = self.__name == MonitorDDCCI.default_name()
         logger.info(f"Found DDCCI Monitor {self.__name}")
 
     def __vcp_cap(self) -> Dict:
@@ -32,6 +34,10 @@ class MonitorDDCCI(MonitorBase):
 
     def name(self):
         return self.__name
+
+    @staticmethod
+    def default_name():
+        return "Monitor"
 
     @override
     def get_brightness(self, blocking: bool = False, force: bool = False) -> Optional[int]:

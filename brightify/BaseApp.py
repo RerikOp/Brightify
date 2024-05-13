@@ -55,7 +55,7 @@ def _usb_monitors(monitor_impls: List[Type[MonitorUSB]]) -> List[MonitorUSB]:
     return [impl(dev) for impl, dev in monitor_inst]
 
 
-def _ddcci_monitors() -> List[MonitorBase]:
+def _ddcci_monitors() -> List[MonitorDDCCI]:
     import monitorcontrol
     monitors = monitorcontrol.get_monitors()
     return [MonitorDDCCI(monitor) for monitor in monitors]
@@ -146,7 +146,7 @@ class BaseApp(QMainWindow):
                 yield row
 
     def update_ui_from_sensor(self):
-        monitor_rows = filter(lambda r: r.monitor is not None, self.__get_monitor_rows())
+        monitor_rows = list(filter(lambda r: r.monitor is not None, self.__get_monitor_rows()))
         # if no sensor data is available, enable all sliders
         if not self.__sensor_comm.measurements:
             for row in monitor_rows:
@@ -161,7 +161,7 @@ class BaseApp(QMainWindow):
             if not row.is_auto_tick.isChecked():
                 # enable the slider
                 row.slider.setEnabled(True)
-                return
+                continue
             # disable the slider
             row.slider.setEnabled(False)
             # lazily set the slider to the current brightness or keep it where the user set it
@@ -169,6 +169,8 @@ class BaseApp(QMainWindow):
             if brightness is not None:
                 # also sets the brightness label and sends the brightness to the monitor as we connected the slider
                 row.slider.setValue(brightness)
+                # trigger release event to set the brightness on DDCCI monitors
+                row.slider.sliderReleased.emit()
 
     def clear_rows(self):
         while self.rows.count():
@@ -179,15 +181,12 @@ class BaseApp(QMainWindow):
             if widget is not None:
                 widget.deleteLater()
 
-    def __config_checkbox(self, row):
-        row.is_auto_tick.stateChanged.connect(lambda state: self.update_ui_from_sensor())
-
     def __load_rows(self):
         self.clear_rows()
         max_label_width = 0
         monitors: List[MonitorBase] = get_supported_monitors()
         if not monitors:
-            logger.warning("No monitors were found -  try to reconnect the monitor")
+            logger.warning("No monitors were found - try to reconnect the monitor")
             return
 
         for m in monitors:
@@ -197,7 +196,6 @@ class BaseApp(QMainWindow):
             row.name_label.setText(m.name())
             max_label_width = max(max_label_width, row.name_label.minimumSizeHint().width())
             self.__config_slider(row)
-            self.__config_checkbox(row)
             self.__connect_monitor(row, m)
             self.rows.addWidget(row)
             row.show()
@@ -230,7 +228,7 @@ class BaseApp(QMainWindow):
         # start the sensor timer if it is not running
         if not self.__sensor_timer.isActive():
             logger.debug("Starting sensor timer")
-            self.__sensor_timer.start(500)
+            self.__sensor_timer.start(250)
         self.show()
 
     def change_state(self, new_state: Literal["show", "hide", "invert"] = "invert"):
