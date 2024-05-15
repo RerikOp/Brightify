@@ -1,19 +1,18 @@
 # Getting started
-1. Create virtual environment `python -m venv .venv`
-2. Activate the virtual environment
-   1. On Windows run `./.venv/Scripts/activate`
-   2. On Mac or Linux run  `source .venv/bin/activate`
-3. Install dependencies `pip install -r requirements.txt`
-4. (Optional) Add your own implementation of [MonitorBase](brightify/monitors/monitor_base.py) for your Monitor
-5. Run `python brightify.py`
-6. To exit either right-click the icon and press **Exit** or press **CRTL + C** in the Terminal
+1. Install brightify by running `pip install .` in the main directory
+2. To start the app: `python -m brightify run`. You can exit either by right-clicking the icon in the taskbar and selecting "Exit" or by pressing `Ctrl+C` in the terminal.
+3. There are several other arguments you can pass to the app, see `python -m brightify --help` for more information.
+3.1 To start the app at startup `python -m brightify add_startup_task`. By default, the terminal will be hidden, but you can change this by passing the `--force-console` argument.
+To remove the startup task, run `python -m brightify remove_startup_task`.
+
 
 # Set up the brightness sensor
-1. Modify the [config](config.py) to match your device and firmware
+1. Modify the [SensorComm](brightify/SensorComm.py) class to match your device and firmware
 2. Modify the code that is polling from the brightness sensor [Device Firmware](brightify/sensor_firmware/src)
 3. Modify [platformio.ini](brightify/sensor_firmware/platformio.ini) and enter your board (see [supported boards](https://docs.platformio.org/en/latest/boards/index.html))
 4. Run `pio run -t upload` in the terminal to upload the firmware to the board.
 If everything is working, the *Auto* Checkbox for each supported Monitor should now be clickable 
+
 
 # Remarks
 + Currently, only the Windows task bar icon is supported, the main part of this app is OS independent
