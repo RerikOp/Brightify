@@ -1,9 +1,14 @@
+import atexit
 import copy
 import datetime as dt
 import json
 import logging
+import sys
 from typing import override
 from logging import handlers
+import logging.config
+
+from brightify import root_dir
 
 LOG_RECORD_BUILTIN_ATTRS = {
     "args",  # The tuple of arguments merged into msg to produce message, or a dict whose values are used for the merge.
@@ -101,3 +106,23 @@ class InfoAndBelow(logging.Filter):
     @override
     def filter(self, record: logging.LogRecord) -> bool | logging.LogRecord:
         return record.levelno > logging.INFO
+
+
+def configure_logging():
+    import tomllib as toml
+    # make sure logs dir exists
+    log_dir = root_dir / "logs"
+    log_dir.mkdir(exist_ok=True)
+    with open(root_dir / "log_config.toml", "rb") as f:
+        config = toml.load(f)
+    # update the filename to the logs dir
+    for handler, handler_config in config["handlers"].items():
+        if "filename" in handler_config.keys():
+            filename = handler_config["filename"]
+            abs_path = log_dir / filename
+            config["handlers"][handler]["filename"] = str(abs_path)
+    logging.config.dictConfig(config)
+    queue_handler = logging.getHandlerByName("queue_handler")
+    if queue_handler is not None:
+        queue_handler.listener.start()
+        atexit.register(queue_handler.listener.stop)

@@ -1,4 +1,3 @@
-import random
 import threading
 from typing import List, Tuple, Type, Callable, Generator, Optional, Literal, Dict
 
@@ -16,7 +15,6 @@ import logging
 from brightify.monitors.MonitorBase import MonitorBase
 from brightify.monitors.MonitorDDCCI import MonitorDDCCI
 from brightify.monitors.MonitorUSB import MonitorUSB
-import atexit
 
 # use global logger
 logger = logging.getLogger(app_name)
@@ -104,8 +102,6 @@ class BaseApp(QMainWindow):
         self.fade_animation = QPropertyAnimation(self, b"geometry")
         self.fade_animation.finished.connect(lambda: self.__anim_lock.release())
         self.fade_animation.finished.connect(self.activateWindow)
-
-        atexit.register(self.close)
 
     @property
     def ui_config(self) -> UIConfig:
@@ -264,11 +260,3 @@ class BaseApp(QMainWindow):
 
     def show(self):
         super().show()
-
-    def close(self):
-        self.__sensor_timer.stop()
-        self.__sensor_comm.__del__()
-        self.__sensor_thread.quit()
-
-        logger.info("Closing app")
-        super().close()

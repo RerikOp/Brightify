@@ -1,3 +1,4 @@
+import atexit
 import dataclasses
 import logging
 import time
@@ -27,6 +28,7 @@ class SensorComm(QObject):
         super().__init__()
         # self.flash_firmware()
         self.update_signal.connect(self.update)
+        atexit.register(self.__del__)
 
     def get_measurement(self) -> Optional[int]:
         """
