@@ -1,14 +1,13 @@
 import ctypes
+import sys
+
 import win32com.client
-from pathlib import PureWindowsPath
-
-from brightify import app_name, root_dir
-
-bat_file = root_dir / "scripts" / "windows" / "run_brightify.bat"
+from brightify import app_name
+from brightify.scripts.windows.actions import bat_file, no_console
 
 
 # must be run as admin
-def __create_startup_task(script_path):
+def __create_startup_task(force_console):
     TASK_TRIGGER_AT_SYSTEMSTART = 8
     TASK_CREATE_OR_UPDATE = 6
     TASK_ACTION_EXEC = 0
@@ -26,7 +25,13 @@ def __create_startup_task(script_path):
 
     # Set the action to execute the script
     action = task_def.Actions.Create(TASK_ACTION_EXEC)
-    action.Path = str(script_path)
+    # if force_console is True, run the bat file directly
+    if force_console:
+        action.Path = str(bat_file)
+    else:
+        # the path is wscript.exe
+        action.Path = "wscript.exe"
+        action.Arguments = f"{str(no_console)} {str(bat_file)}"
 
     # Register the task (create or update)
     root_folder.RegisterTaskDefinition(
@@ -39,8 +44,10 @@ def __create_startup_task(script_path):
 
 
 if __name__ == '__main__':
+    force_console = "--force-console" in sys.argv
+
     if not bat_file.exists():
-        raise FileNotFoundError("The bat file does not exist, don't run this script directly - use the actions script.")
+        raise FileNotFoundError("The bat file does not exist")
     if not ctypes.windll.shell32.IsUserAnAdmin():
         raise PermissionError("This script must be run as admin")
-    __create_startup_task(PureWindowsPath(bat_file))
+    __create_startup_task(force_console)

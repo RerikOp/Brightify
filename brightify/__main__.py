@@ -42,12 +42,13 @@ def main_darwin():
 
 
 def parse_args():
-    actions = ["run", "add_startup_task", "remove_startup_task"]
+    from brightify import actions
     parser = argparse.ArgumentParser(description="Brightify")
-    parser.add_argument("--debug", action="store_true", help="Enable debug logging")
-    # No flag specifies the action, i.e. python -m brightify <action>.
     parser.add_argument("action", choices=actions, default="run", nargs="?",
-                        help="The action to perform. Run the app or add/remove startup task (may require elevated permission).")
+                        help="Run the app or add/remove startup task or icon (may require elevated permission).")
+    parser.add_argument("--force-console", action="store_true", default=False,
+                        help="Always show the console when starting the app via task / icon etc."
+                             "Ignored when action is not add_startup_task or add_startup_icon.")
     return parser.parse_args()
 
 
@@ -73,11 +74,11 @@ def run():
         exit(0)
 
 
-def add_startup_task():
+def add_startup_task(args):
     match host_os:
         case "Windows":
             from brightify.scripts.windows.actions import elevated_add_startup_task
-            elevated_add_startup_task()
+            elevated_add_startup_task(args.force_console)
         case "Linux":
             raise NotImplementedError("Not implemented yet")
         case "Darwin":
@@ -87,7 +88,7 @@ def add_startup_task():
             exit(1)
 
 
-def remove_startup_task():
+def remove_startup_task(args):
     match host_os:
         case "Windows":
             from brightify.scripts.windows.actions import elevated_remove_startup_task
@@ -101,19 +102,49 @@ def remove_startup_task():
             exit(1)
 
 
+def add_startup_icon(args):
+    match host_os:
+        case "Windows":
+            raise NotImplementedError("Not implemented yet")
+        case "Linux":
+            raise NotImplementedError("Not implemented yet")
+        case "Darwin":
+            raise NotImplementedError("Not implemented yet")
+        case _:
+            logger.error(f"Unsupported OS: {host_os}")
+            exit(1)
+
+
+def remove_startup_icon(args):
+    match host_os:
+        case "Windows":
+            raise NotImplementedError("Not implemented yet")
+        case "Linux":
+            raise NotImplementedError("Not implemented yet")
+        case "Darwin":
+            raise NotImplementedError("Not implemented yet")
+        case _:
+            logger.error(f"Unsupported OS: {host_os}")
+            exit(1)
+
+
 if __name__ == '__main__':
-    args = parse_args()
+    _args = parse_args()
     configure_logging()
     logger.debug("Logging configured")
 
     # Check which action to perform
-    match args.action:
+    match _args.action:
         case "run":
             run()
         case "add_startup_task":
-            add_startup_task()
+            add_startup_task(_args)
         case "remove_startup_task":
-            remove_startup_task()
+            remove_startup_task(_args)
+        case "add_startup_icon":
+            add_startup_icon(_args)
+        case "remove_startup_icon":
+            remove_startup_icon(_args)
         case _:
-            logger.error(f"Unsupported action: {args.action}")
+            logger.error(f"Unsupported action: {_args.action}")
             exit(1)
