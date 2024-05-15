@@ -1,4 +1,4 @@
-from typing import Optional, override, Dict
+from typing import Optional, override, Dict, Tuple
 
 import monitorcontrol
 
@@ -15,24 +15,25 @@ class MonitorDDCCI(MonitorBase):
         # DDC-CI is annoying, so we try multiple times
         self.max_tries = 10
         # Try to get the VCP capabilities
-        self.vcp_cap = self.__vcp_cap()
-        self.__name = self.vcp_cap.get('model', MonitorDDCCI.default_name())
-        self.is_unknown = self.__name == MonitorDDCCI.default_name()
+        self.vcp_cap, self.__name, self.is_unknown = self.update_cap()
         logger.info(f"Found DDCCI Monitor {self.__name}")
 
-    def __vcp_cap(self) -> Dict:
+    def update_cap(self) -> Tuple[Dict, str, bool]:
         with self.monitor:
             for _ in range(self.max_tries):
                 try:
                     vcp_cap = self.monitor.get_vcp_capabilities()
                     # sometimes the dict is broken
                     if vcp_cap.get('model', None) is not None:
-                        return vcp_cap
+                        return vcp_cap, vcp_cap['model'], False
                 except monitorcontrol.vcp.vcp_abc.VCPError:
                     pass
-        return {}
+        return {}, MonitorDDCCI.default_name(), True
 
     def name(self):
+        if self.is_unknown:
+            # lazily try to get the name again
+            self.vcp_cap, self.__name, self.is_unknown = self.update_cap()
         return self.__name
 
     @staticmethod

@@ -36,8 +36,6 @@ class SensorComm(QObject):
         :return: the next reading from the sensor or None if sensor isn't ready.
          Make sure to set timeout appropriately so this method doesn't stall too long if device isn't ready
         """
-        if not self.has_serial():
-            return None
         # check if serial is ready to read
         data = self.ser.readline().strip().decode("utf-8")
         if data != "":  # the readline will return an empty string if device is sleeping.
