@@ -48,8 +48,8 @@ class MonitorRow(QWidget):
 
         # the brightness label should be 4 characters wide (including the % sign)
         self.brightness_label.setFixedWidth(QFontMetrics(self.font).horizontalAdvance("100%"))
-        # The type label should support the longest type name (DDCCI) + brackets
-        self.type_label.setFixedWidth(QFontMetrics(self.font).horizontalAdvance("[DDCCI]"))
+        # The type label should support the longest type name (DDCCI) + brackets + al little padding
+        #self.type_label.setFixedWidth(QFontMetrics(self.font).horizontalAdvance("[DDCCI]"))
 
         # Create layout and add components
         layout = QHBoxLayout()

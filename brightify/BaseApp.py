@@ -179,7 +179,8 @@ class BaseApp(QMainWindow):
 
     def __load_rows(self):
         self.clear_rows()
-        max_label_width = 0
+        max_name_width = 0
+        max_type_width = 0
         monitors: List[MonitorBase] = get_supported_monitors()
         if not monitors:
             logger.warning("No monitors were found - try to reconnect the monitor")
@@ -190,15 +191,17 @@ class BaseApp(QMainWindow):
             row = MonitorRow(self.ui_config.theme, parent=self)
             row.slider.setRange(m.min_brightness, m.max_brightness)
             row.name_label.setText(m.name())
-            max_label_width = max(max_label_width, row.name_label.minimumSizeHint().width())
             self.__config_slider(row)
             self.__connect_monitor(row, m)
             self.rows.addWidget(row)
-            row.show()
+            max_name_width = max(max_name_width, row.name_label.minimumSizeHint().width())
+            max_type_width = max(max_type_width, row.type_label.minimumSizeHint().width())
 
         # set the minimum width of the name labels to the maximum width over all labels
         for row in self.__get_monitor_rows():
-            row.name_label.setMinimumWidth(max_label_width)
+            row.name_label.setMinimumWidth(max_name_width + 5)
+            row.type_label.setMinimumWidth(max_type_width + 5)
+            row.show()
 
     def __update_theme(self):
         theme = self.__get_theme()

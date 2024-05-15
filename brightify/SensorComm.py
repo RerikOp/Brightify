@@ -39,13 +39,12 @@ class SensorComm(QObject):
         if not self.has_serial():
             return None
         # check if serial is ready to read
-        if self.ser.in_waiting:
-            data = self.ser.readline().strip().decode("utf-8")
-            if data != "":  # the readline will return an empty string if device is sleeping.
-                try:
-                    return int(data)
-                except ValueError:
-                    return None
+        data = self.ser.readline().strip().decode("utf-8")
+        if data != "":  # the readline will return an empty string if device is sleeping.
+            try:
+                return int(data)
+            except ValueError:
+                return None
         return None
 
     def __update(self):
@@ -58,7 +57,7 @@ class SensorComm(QObject):
             else:
                 return
 
-            # Get the next reading from the sensor
+        # Get the next reading from the sensor
         if (reading := self.get_measurement()) is not None:
             self.measurements.append(reading)
             # trim the list of measurements to the last num_measurements
@@ -79,7 +78,13 @@ class SensorComm(QObject):
             self.is_reading = False
 
     def has_serial(self) -> bool:
-        return self.ser is not None and self.ser.is_open
+        if self.ser is not None and self.ser.is_open:
+            try:
+                self.ser.in_waiting  # attempt to read from the serial port
+                return True
+            except serial.SerialException:
+                return False
+        return False
 
     def flash_firmware(self):
         import subprocess

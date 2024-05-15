@@ -57,6 +57,8 @@ class MonitorBase(ABC):
             return sum(data) / len(data)
 
         brightnesses = list(map(measurement_to_brightness, readings))
+        if not brightnesses:
+            return None
         potential_brightness = int(mean(brightnesses))
         current_brightness = self.get_brightness(force=True)
         if current_brightness is None:
