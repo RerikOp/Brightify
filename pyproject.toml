@@ -17,5 +17,4 @@ dependencies = [
     "monitorcontrol",
     # Windows-only dependencies
     'pywin32; platform_system == "Windows"',
-    'wmi; platform_system == "Windows"'
 ]

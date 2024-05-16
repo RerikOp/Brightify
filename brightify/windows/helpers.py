@@ -17,24 +17,6 @@ except ImportError as e:
 # Use OS specific logger
 logger = logging.getLogger("Windows")
 
-
-"""def get_internal_monitor() -> MonitorBase | None:
-    import wmi
-    c = wmi.WMI(namespace='wmi')
-    methods = None
-    try:
-        methods = c.WmiMonitorBrightnessMethods()[0]
-    except wmi.x_wmi as _:
-        return None
-        # TODO which error is raised if the monitor is not found?
-
-    internal = MonitorBaseImpl("Internal",
-                               lambda: methods.WmiGetBrightness()[0],
-                               lambda brightness: methods.WmiSetBrightness(brightness, 0))
-
-    return internal"""
-
-
 def get_registry_key(sub_key: str, name: str):
     import winreg
     try:
