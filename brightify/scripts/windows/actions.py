@@ -65,6 +65,7 @@ def add_startup_icon(force_console):
     Path(startup_folder).mkdir(parents=True, exist_ok=True)
     shortcut_path = Path(startup_folder) / f"{app_name}.lnk"
     with winshell.shortcut(str(shortcut_path)) as shortcut:
+        shortcut: winshell.Shortcut
         if force_console:
             shortcut.path = str(bat_file)
         else:
@@ -73,7 +74,7 @@ def add_startup_icon(force_console):
         shortcut.description = f"Startup link for {app_name}"
         icon_path = root_dir / "res" / "icon_light.ico"
         if icon_path.exists():
-            shortcut.icon = str(icon_path)
+            shortcut.icon_location = (str(icon_path), 0)
 
 
 def remove_startup_icon():
