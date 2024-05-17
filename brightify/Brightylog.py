@@ -3,8 +3,6 @@ import copy
 import datetime as dt
 import json
 import logging
-import sys
-from typing import override
 from logging import handlers
 import logging.config
 
@@ -13,7 +11,7 @@ from brightify import root_dir
 LOG_RECORD_BUILTIN_ATTRS = {
     "args",  # The tuple of arguments merged into msg to produce message, or a dict whose values are used for the merge.
     "asctime",
-    # Human-readable time when the LogRecord was created. By default this is of the form '2003-07-08 16:49:45,896'.
+    # Human-readable time when the LogRecord was created. By default, this is of the form '2003-07-08 16:49:45,896'.
     "created",  # Time when the LogRecord was created (as returned by time.time()).
     "exc_info",  # Exception tuple (à la sys.exc_info) or, if no exception has occurred, None.
     "exc_text",  # Text rendering of the exception info, if available, otherwise None.
@@ -64,7 +62,6 @@ class Brightylog(logging.Formatter):
         super().__init__()
         self.fmt_keys = fmt_keys if fmt_keys is not None else {}
 
-    @override
     def format(self, record: logging.LogRecord) -> str:
         message = self._prepare_log_dict(record)
         return json.dumps(message, default=str)
@@ -97,13 +94,11 @@ class Brightylog(logging.Formatter):
 
 
 class WarningAndAbove(logging.Filter):
-    @override
     def filter(self, record: logging.LogRecord) -> bool | logging.LogRecord:
         return record.levelno <= logging.INFO
 
 
 class InfoAndBelow(logging.Filter):
-    @override
     def filter(self, record: logging.LogRecord) -> bool | logging.LogRecord:
         return record.levelno > logging.INFO
 

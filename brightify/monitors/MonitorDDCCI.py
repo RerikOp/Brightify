@@ -1,4 +1,4 @@
-from typing import Optional, override, Dict, Tuple
+from typing import Optional, Dict, Tuple
 
 import monitorcontrol
 
@@ -40,7 +40,6 @@ class MonitorDDCCI(MonitorBase):
     def default_name():
         return "Monitor"
 
-    @override
     def get_brightness(self, blocking: bool = False, force: bool = False) -> Optional[int]:
         max_tries = 1 if not blocking and not force else self.max_tries
         for _ in range(max_tries):
@@ -52,7 +51,6 @@ class MonitorDDCCI(MonitorBase):
         logger.debug(f"Failed to get luminance of CCDDI monitor {self.name()}")
         return None
 
-    @override
     def set_brightness(self, brightness: int, blocking: bool = False, force: bool = False) -> None:
         max_tries = 1 if not blocking and not force else self.max_tries
         for _ in range(max_tries):

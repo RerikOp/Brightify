@@ -1,4 +1,4 @@
-from typing import Optional, Callable, override
+from typing import Optional, Callable
 
 from brightify.monitors.MonitorBase import MonitorBase
 
@@ -21,10 +21,8 @@ class MonitorGeneric(MonitorBase):
     def name(self):
         return self.name_cb()
 
-    @override
     def get_brightness(self, blocking: bool = False, force: bool = False) -> Optional[int]:
         return self.get_brightness_cb(blocking, force)
 
-    @override
     def set_brightness(self, brightness: int, blocking: bool = False, force: bool = False) -> None:
         self.set_brightness_cb(brightness, blocking, force)
