@@ -105,7 +105,8 @@ def remove_startup_task(args):
 def add_startup_icon(args):
     match host_os:
         case "Windows":
-            raise NotImplementedError("Not implemented yet")
+            from brightify.scripts.windows.actions import add_startup_icon
+            add_startup_icon(args.force_console)
         case "Linux":
             raise NotImplementedError("Not implemented yet")
         case "Darwin":
@@ -118,7 +119,8 @@ def add_startup_icon(args):
 def remove_startup_icon(args):
     match host_os:
         case "Windows":
-            raise NotImplementedError("Not implemented yet")
+            from brightify.scripts.windows.actions import remove_startup_icon
+            remove_startup_icon()
         case "Linux":
             raise NotImplementedError("Not implemented yet")
         case "Darwin":

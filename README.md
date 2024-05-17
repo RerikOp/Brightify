@@ -1,10 +1,11 @@
 # Getting started
-1. Install brightify by running `pip install .` in the main directory
+1. Install brightify by running `pip install .` in the main directory. When developing, you can use `pip install -e .` to install the package in editable mode.
 2. To start the app: `python -m brightify run`. You can exit either by right-clicking the icon in the taskbar and selecting "Exit" or by pressing `Ctrl+C` in the terminal.
 3. There are several other arguments you can pass to the app, see `python -m brightify --help` for more information.
-3.1 To start the app at startup `python -m brightify add_startup_task`. By default, the terminal will be hidden, but you can change this by passing the `--force-console` argument.
-To remove the startup task, run `python -m brightify remove_startup_task`.
-
+   1. To start the app at startup `python -m brightify add_startup_task`. By default, the terminal will be hidden, but you can change this by passing the `--force-console` argument.
+   To remove the startup task, run `python -m brightify remove_startup_task`.
+   2. To add startup icon `python -m brightify add_startup_icon`. Again, you can pass the `--force-console` argument force the terminal.
+   To remove the icon, run `python -m brightify remove_startup_icon`.
 
 # Set up the brightness sensor
 1. Modify the [SensorComm](brightify/SensorComm.py) class to match your device and firmware
@@ -16,6 +17,6 @@ If everything is working, the *Auto* Checkbox for each supported Monitor should 
 
 # Remarks
 + Currently, only the Windows task bar icon is supported, the main part of this app is OS independent
-+ Feel free to create a pull request and add your own Monitor ;)
++ Feel free to create a pull request and add your own USB Monitor
 
 

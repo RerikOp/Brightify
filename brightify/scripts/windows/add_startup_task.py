@@ -1,53 +1,44 @@
 import ctypes
+import os
+import subprocess
 import sys
-
-import win32com.client
-from brightify import app_name
-from brightify.scripts.windows.actions import bat_file, no_console
-
-
-# must be run as admin
-def __create_startup_task(force_console):
-    TASK_TRIGGER_AT_SYSTEMSTART = 8
-    TASK_CREATE_OR_UPDATE = 6
-    TASK_ACTION_EXEC = 0
-    TASK_LOGON_NONE = 0  # Add this line
-
-    scheduler = win32com.client.Dispatch('Schedule.Service')
-    scheduler.Connect()
-
-    root_folder = scheduler.GetFolder('\\')
-    task_def = scheduler.NewTask(0)
-
-    # Create a trigger for the task
-    trigger = task_def.Triggers.Create(TASK_TRIGGER_AT_SYSTEMSTART)
-    trigger.Enabled = True
-
-    # Set the action to execute the script
-    action = task_def.Actions.Create(TASK_ACTION_EXEC)
-    # if force_console is True, run the bat file directly
-    if force_console:
-        action.Path = str(bat_file)
-    else:
-        # the path is wscript.exe
-        action.Path = "wscript.exe"
-        action.Arguments = f"{str(no_console)} {str(bat_file)}"
-
-    # Register the task (create or update)
-    root_folder.RegisterTaskDefinition(
-        app_name,  # Task name
-        task_def,
-        TASK_CREATE_OR_UPDATE,
-        '',  # No user
-        '',  # No password
-        TASK_LOGON_NONE)
+from pathlib import Path
 
 
 if __name__ == '__main__':
+    script_dir = Path(__file__).parent
+    bat_file = script_dir / "brightify.bat"
+    no_console = script_dir / "no-console.vbs"
+    install_log = script_dir / "install.log"
+    task_name = "Brightify"
     force_console = "--force-console" in sys.argv
 
-    if not bat_file.exists():
-        raise FileNotFoundError("The bat file does not exist")
-    if not ctypes.windll.shell32.IsUserAnAdmin():
-        raise PermissionError("This script must be run as admin")
-    __create_startup_task(force_console)
+    with open(install_log, 'a+') as f:
+        # write the arguments to the log file, omits the script path
+        f.write(f"Adding {task_name} startup task with the following arguments: {sys.argv[1:]}\n")
+        # check if the script is run as admin
+        if not ctypes.windll.shell32.IsUserAnAdmin():
+            s = "This script must be run as admin"
+            f.write(s + "\n")
+            raise PermissionError(s)
+        if not force_console and not no_console.exists():
+            s = "The vbs file does not exist but is required to run the script without a console"
+            f.write(s + "\n")
+            raise FileNotFoundError(s)
+        if not bat_file.exists():
+            s = "The bat file does not exist"
+            f.write(s + "\n")
+            raise FileNotFoundError(s)
+        # get the current user
+        current_user = os.getlogin()
+        # create the task
+        subprocess.run(
+            ['schtasks', '/Create',
+             '/SC', 'ONSTART',
+             '/TN', task_name,
+             '/TR', f"wscript.exe {str(no_console)} {bat_file}" if not force_console else str(bat_file),
+             '/RU', current_user,
+             '/F'],
+            check=True, stdout=f, stderr=f)
+
+
