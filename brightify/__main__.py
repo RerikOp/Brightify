@@ -42,13 +42,34 @@ def main_darwin():
 
 
 def parse_args():
-    from brightify import actions
     parser = argparse.ArgumentParser(description="Brightify")
-    parser.add_argument("action", choices=actions, default="run", nargs="?",
-                        help="Run the app or add/remove startup task or icon (may require elevated permission).")
-    parser.add_argument("--force-console", action="store_true", default=False,
-                        help="Always show the console when starting the app via task / icon etc."
-                             "Ignored when action is not add_startup_task or add_startup_icon.")
+    subparsers = parser.add_subparsers(dest="command", help="The command to run. Defaults to 'run' if not specified.")
+
+    subparsers.add_parser("run", help="Runs Brightify. This is the default command if no other is specified.")
+    parser.set_defaults(command="run")
+
+    add_parser = subparsers.add_parser("add", help="Add Brightify to the system.")
+    add_subparsers = add_parser.add_subparsers(dest="action")
+
+    startup_parser = add_subparsers.add_parser("startup",
+                                               help="Start Brightify on startup. Defaults to adding a shortcut to the startup folder which requires no elevated permissions.")
+    add_subparsers.add_parser("menu-icon", help="Add a shortcut to the start menu.")
+
+    modes = ["task-scheduler", "startup-folder"]
+    mode = {"choices": modes, "default": "startup-folder",
+            "help": "How the OS starts the app. Defaults to a shortcut in the startup folder."}
+    startup_parser.add_argument("--mode", **mode)
+
+    add_parser.add_argument("--force-console", action="store_true", default=False,
+                            help="Always show the console when starting the app via task / icon etc.")
+
+    # brightify remove action
+    remove_parser = subparsers.add_parser("remove", help="Remove Brightify from the system.")
+    remove_subparsers = remove_parser.add_subparsers(dest="action")
+    remove_startup_parser = remove_subparsers.add_parser("startup", help="Remove Brightify from startup.")
+    remove_startup_parser.add_argument("--mode", **mode)
+    remove_subparsers.add_parser("menu-icon", help="Remove the start menu shortcut.")
+
     return parser.parse_args()
 
 
@@ -74,11 +95,11 @@ def run():
         exit(0)
 
 
-def add_startup_task(args):
+def add_startup_task(force_console):
     match host_os:
         case "Windows":
             from brightify.scripts.windows.actions import elevated_add_startup_task
-            elevated_add_startup_task(args.force_console)
+            elevated_add_startup_task(force_console)
         case "Linux":
             raise NotImplementedError("Not implemented yet")
         case "Darwin":
@@ -88,7 +109,7 @@ def add_startup_task(args):
             exit(1)
 
 
-def remove_startup_task(args):
+def remove_startup_task():
     match host_os:
         case "Windows":
             from brightify.scripts.windows.actions import elevated_remove_startup_task
@@ -102,11 +123,11 @@ def remove_startup_task(args):
             exit(1)
 
 
-def add_startup_icon(args):
+def add_startup_icon(force_console):
     match host_os:
         case "Windows":
             from brightify.scripts.windows.actions import add_startup_icon
-            add_startup_icon(args.force_console)
+            add_startup_icon(force_console)
         case "Linux":
             raise NotImplementedError("Not implemented yet")
         case "Darwin":
@@ -116,11 +137,39 @@ def add_startup_icon(args):
             exit(1)
 
 
-def remove_startup_icon(args):
+def remove_startup_folder():
     match host_os:
         case "Windows":
-            from brightify.scripts.windows.actions import remove_startup_icon
-            remove_startup_icon()
+            from brightify.scripts.windows.actions import remove_startup_folder
+            remove_startup_folder()
+        case "Linux":
+            raise NotImplementedError("Not implemented yet")
+        case "Darwin":
+            raise NotImplementedError("Not implemented yet")
+        case _:
+            logger.error(f"Unsupported OS: {host_os}")
+            exit(1)
+
+
+def add_menu_icon(force_console):
+    match host_os:
+        case "Windows":
+            from brightify.scripts.windows.actions import add_menu_icon
+            add_menu_icon(force_console)
+        case "Linux":
+            raise NotImplementedError("Not implemented yet")
+        case "Darwin":
+            raise NotImplementedError("Not implemented yet")
+        case _:
+            logger.error(f"Unsupported OS: {host_os}")
+            exit(1)
+
+
+def remove_menu_icon():
+    match host_os:
+        case "Windows":
+            from brightify.scripts.windows.actions import remove_menu_icon
+            remove_menu_icon()
         case "Linux":
             raise NotImplementedError("Not implemented yet")
         case "Darwin":
@@ -134,19 +183,26 @@ if __name__ == '__main__':
     _args = parse_args()
     configure_logging()
     logger.debug("Logging configured")
-
-    # Check which action to perform
-    match _args.action:
-        case "run":
-            run()
-        case "add_startup_task":
-            add_startup_task(_args)
-        case "remove_startup_task":
-            remove_startup_task(_args)
-        case "add_startup_icon":
-            add_startup_icon(_args)
-        case "remove_startup_icon":
-            remove_startup_icon(_args)
+    match _args.command:
+        case "add":
+            match _args.action:
+                case "startup":
+                    match _args.mode:
+                        case "task-scheduler":
+                            add_startup_task(_args.force_console)
+                        case "startup-folder":
+                            add_startup_icon(_args.force_console)
+                case "menu-icon":
+                    add_menu_icon(_args.force_console)
+        case "remove":
+            match _args.action:
+                case "startup":
+                    match _args.mode:
+                        case "task-scheduler":
+                            remove_startup_task()
+                        case "startup-folder":
+                            remove_startup_folder()
+                case "menu-icon":
+                    remove_menu_icon()
         case _:
-            logger.error(f"Unsupported action: {_args.action}")
-            exit(1)
+            run()

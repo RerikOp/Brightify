@@ -57,13 +57,10 @@ def elevated_remove_startup_task():
                                         1)  # show window
 
 
-def add_startup_icon(force_console):
-    create_bat_file()
-    create_no_console_vbs()
-    startup_folder = winshell.startup()
-    # create a shortcut in the startup folder
-    Path(startup_folder).mkdir(parents=True, exist_ok=True)
-    shortcut_path = Path(startup_folder) / f"{app_name}.lnk"
+def add_icon(force_console, directory):
+    # create a shortcut in the directory folder
+    Path(directory).mkdir(parents=True, exist_ok=True)
+    shortcut_path = Path(directory) / f"{app_name}.lnk"
     with winshell.shortcut(str(shortcut_path)) as shortcut:
         shortcut: winshell.Shortcut
         if force_console:
@@ -77,7 +74,28 @@ def add_startup_icon(force_console):
             shortcut.icon_location = (str(icon_path), 0)
 
 
-def remove_startup_icon():
+def add_menu_icon(force_console):
+    create_bat_file()
+    create_no_console_vbs()
+    programs_folder = winshell.programs()
+    add_icon(force_console, programs_folder)
+
+
+def remove_menu_icon():
+    programs_folder = winshell.programs()
+    shortcut_path = Path(programs_folder) / f"{app_name}.lnk"
+    if shortcut_path.exists():
+        os.remove(shortcut_path)
+
+
+def add_startup_icon(force_console):
+    create_bat_file()
+    create_no_console_vbs()
+    startup_folder = winshell.startup()
+    add_icon(force_console, startup_folder)
+
+
+def remove_startup_folder():
     startup_folder = winshell.startup()
     shortcut_path = Path(startup_folder) / f"{app_name}.lnk"
     if shortcut_path.exists():
