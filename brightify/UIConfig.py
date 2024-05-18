@@ -120,9 +120,16 @@ class UIConfig:
     max_label_width: int = -1
 
     # Icon
-    icon_path: Path = dataclasses.field(default=root_dir / "res" / "icon_light.ico")
+    _icon_path: Path = dataclasses.field(default=root_dir / "res" / "icon_light.ico")
 
     animation_duration: int = 100
+
+    @property
+    def icon_path(self):
+        if self.theme.mode == "dark":
+            return root_dir / "res" / "icon_light.ico"
+        if self.theme.mode == "light":
+            return root_dir / "res" / "icon_dark.ico"
 
     @property
     def style_sheet(self):
