@@ -5,7 +5,9 @@
 2. To start the app: `python -m brightify run`. You can exit either by right-clicking the icon in the taskbar and
    selecting "Exit" or by pressing `Ctrl+C` in the terminal.
 3. There are several other arguments you can pass to the app, see `python -m brightify --help` for more information.
-    1. To start the app at startup `python -m add startup`. By default, the terminal will be hidden, but you can change
+    1. To start the app at startup `python -m add startup` (Equivalent
+       to `python -m add startup --mode startup-folder`).
+       By default, the terminal will be hidden, but you can change
        this by passing the `--force-console` argument.
        To remove the startup task, run `python -m remove startup`. On Windows you can also use the Task Scheduler, which
        requires elevated permissions to add the app to startup.
