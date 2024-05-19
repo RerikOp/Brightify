@@ -1,7 +1,5 @@
 import ctypes
 import os
-import subprocess
-
 import winshell
 import sys
 from pathlib import Path
@@ -21,6 +19,7 @@ python.exe -m brightify
 pause
 exit
     """
+    Path(bat_file).parent.mkdir(parents=True, exist_ok=True)
     with open(bat_file, 'w+') as f:
         f.write(content)
 
@@ -28,7 +27,7 @@ exit
 def create_no_console_vbs():
     # create a vbs script to run the bat file without showing the console
     content = 'CreateObject("Wscript.Shell").Run \"\"\"\" & WScript.Arguments(0) & \"\"\"\", 0, False'
-
+    Path(no_console).parent.mkdir(parents=True, exist_ok=True)
     with open(no_console, 'w+') as f:
         f.write(content)
 

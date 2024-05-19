@@ -4,7 +4,8 @@ from pathlib import Path
 
 if __name__ == '__main__':
     script_dir = Path(__file__).parent
-    install_log = script_dir / "install.log"
+    install_log = Path(__file__).parent.parent.parent / "logs" / "install.log"
+    Path(install_log).parent.mkdir(parents=True, exist_ok=True)
     task_name = "Brightify"
 
     with open(install_log, 'a+') as f:

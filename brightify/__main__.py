@@ -2,11 +2,13 @@ import threading
 import logging
 import sys
 import argparse
+from pathlib import Path
+
 from PyQt6.QtWidgets import QApplication
 
-from brightify import app_name, host_os
+from brightify import app_name, host_os, root_dir
 from brightify.BaseApp import BaseApp
-from brightify.Brightylog import configure_logging
+from brightify.Brightylog import configure_logging, start_logging
 
 # use global logger
 logger = logging.getLogger(app_name)
@@ -181,8 +183,18 @@ def remove_menu_icon():
 
 if __name__ == '__main__':
     _args = parse_args()
-    configure_logging()
-    logger.debug("Logging configured")
+    # for writing logs before logging is configured
+    install_log = root_dir / "logs" / "install.log"
+    Path(install_log).parent.mkdir(parents=True, exist_ok=True)
+    try:
+        configure_logging()
+        start_logging()
+        logger.critical("Brightify started")
+    except Exception as e:
+        with open(install_log, "a+") as f:
+            f.write("Failed to configure logging\n")
+            f.write(str(e) + "\n")
+
     match _args.command:
         case "add":
             match _args.action:

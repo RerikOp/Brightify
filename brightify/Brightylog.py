@@ -3,8 +3,10 @@ import copy
 import datetime as dt
 import json
 import logging
+import sys
 from logging import handlers
 import logging.config
+from pathlib import Path
 
 from brightify import root_dir
 
@@ -103,21 +105,43 @@ class InfoAndBelow(logging.Filter):
         return record.levelno > logging.INFO
 
 
-def configure_logging():
-    import tomllib as toml
-    # make sure logs dir exists
-    log_dir = root_dir / "logs"
-    log_dir.mkdir(exist_ok=True)
-    with open(root_dir / "log_config.toml", "rb") as f:
-        config = toml.load(f)
+def remove_queue_handler(config: dict):
+    # pop the queue handler from the handlers
+    queue_handler = config["handlers"].pop("queue_handler")
+    queue_handler.pop("class")  # remove the class key
+    # add the level to the root logger
+    queue_handler["level"] = "DEBUG"
+    # link the handlers to the root logger
+    config["loggers"]["root"] = queue_handler
+
+
+def modify_log_config(config: dict, log_dir: Path):
+    # if python version is < 3.12, remove the queue handler and link everything to the root logger
+    if sys.version_info < (3, 12):
+        remove_queue_handler(config)
+
     # update the filename to the logs dir
     for handler, handler_config in config["handlers"].items():
         if "filename" in handler_config.keys():
             filename = handler_config["filename"]
             abs_path = log_dir / filename
             config["handlers"][handler]["filename"] = str(abs_path)
+
+
+def start_logging():
+    if (3, 12) <= sys.version_info:
+        queue_handler = logging.getHandlerByName("queue_handler")
+        if queue_handler is not None and hasattr(queue_handler, "listener"):
+            queue_handler.listener.start()
+            atexit.register(queue_handler.listener.stop)
+
+
+def configure_logging():
+    import tomllib as toml
+    # make sure logs dir exists
+    log_dir = root_dir / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    with open(root_dir / "log_config.toml", "rb") as f:
+        config = toml.load(f)
+    modify_log_config(config, log_dir)
     logging.config.dictConfig(config)
-    queue_handler = logging.getHandlerByName("queue_handler")
-    if queue_handler is not None:
-        queue_handler.listener.start()
-        atexit.register(queue_handler.listener.stop)

@@ -9,7 +9,8 @@ if __name__ == '__main__':
     script_dir = Path(__file__).parent
     bat_file = script_dir / "brightify.bat"
     no_console = script_dir / "no-console.vbs"
-    install_log = script_dir / "install.log"
+    install_log = Path(__file__).parent.parent.parent / "logs" / "install.log"
+    Path(install_log).parent.mkdir(parents=True, exist_ok=True)
     task_name = "Brightify"
     force_console = "--force-console" in sys.argv
 
