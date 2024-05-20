@@ -1,10 +1,16 @@
 [project]
 name = "Brightify"
-version = "0.1.0"
+version = "0.1.1"
 authors = [
     { name = "Robin S.", email = "brightify@rs-web.net" }
 ]
-description = "A tool to control the brightness of your screens."
+description = """
+The Brightify application allows users to adjust the brightness of their monitors.
+It primarily functions as a wrapper around the DDC/CI protocol, which is widely supported by most monitors.
+Additionally, the application supports the addition of custom communication protocols for controlling the brightness of USB monitors.
+The application is designed to run in the background and can be controlled via a taskbar icon. It will soon be OS-independent and support Windows, macOS, and Linux.
+Brightyfi also features a brightness sensor that can automatically adjust the monitor's brightness based on the ambient light.
+"""
 
 requires-python = ">= 3.11"
 
