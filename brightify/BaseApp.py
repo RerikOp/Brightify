@@ -3,7 +3,7 @@ from typing import List, Tuple, Type, Callable, Generator, Optional, Literal, Di
 
 from PyQt6 import QtCore
 from PyQt6.QtCore import QPoint, Qt, QRect, QPropertyAnimation, QTimer, QThread
-from PyQt6.QtGui import QFocusEvent, QCursor
+from PyQt6.QtGui import QFocusEvent, QCursor, QRegion, QPainterPath
 from PyQt6.QtWidgets import QMainWindow, QWidget, QVBoxLayout
 
 from brightify import app_name, root_dir
@@ -125,7 +125,6 @@ class BaseApp(QMainWindow):
         self.fade_down_animation = QPropertyAnimation(self, b"geometry")
         self.fade_down_animation.finished.connect(self.__anim_lock.release)
         self.fade_down_animation.finished.connect(self.clearFocus)
-
 
     @property
     def ui_config(self) -> UIConfig:
@@ -255,7 +254,6 @@ class BaseApp(QMainWindow):
 
     # catch outside clicks, which should change the state of the window to hide
     def focusOutEvent(self, event: QFocusEvent):
-        logger.debug("focusOutEvent")
         # get the position of the cursor and check if it is outside the window
         if event.lostFocus():
             if not self.geometry().contains(QCursor.pos()):
@@ -264,14 +262,12 @@ class BaseApp(QMainWindow):
 
         super().focusOutEvent(event)
 
-
     def change_state(self, new_state: Literal["show", "hide", "invert"] = "invert"):
         if self.top_left is None:
             logger.error("Top left corner not set")
             return
         # prevent multiple animations
         if self.__anim_lock.locked():
-            logger.debug("Animation already running")
             return
 
         # lock the animation
