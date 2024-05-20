@@ -16,9 +16,6 @@ keywords = [
     "tool"
 ]
 
-# only supports windows for now
-platforms = ["windows"]
-
 readme = "README.md"
 
 dependencies = [
