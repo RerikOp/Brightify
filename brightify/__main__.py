@@ -44,7 +44,7 @@ def main_darwin():
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="Brightify")
+    parser = argparse.ArgumentParser(description=app_name)
     subparsers = parser.add_subparsers(dest="command", help="The command to run. Defaults to 'run' if not specified.")
     parser.set_defaults(command="run")
 

@@ -3,6 +3,7 @@ from typing import List, Tuple, Type, Callable, Generator, Optional, Literal, Di
 
 from PyQt6 import QtCore
 from PyQt6.QtCore import QPoint, Qt, QRect, QPropertyAnimation, QTimer, QThread
+from PyQt6.QtGui import QFocusEvent, QCursor
 from PyQt6.QtWidgets import QMainWindow, QWidget, QVBoxLayout
 
 from brightify import app_name, root_dir
@@ -21,6 +22,10 @@ logger = logging.getLogger(app_name)
 
 
 def _supported_usb_impls() -> List[Type[MonitorUSB]]:
+    """
+    Finds all user implemented MonitorUSB classes in the monitors directory.
+    :return: a list of all MonitorUSB implementations
+    """
     import os, importlib, inspect
     monitor_impls = set()
     directory = "monitors"
@@ -40,6 +45,11 @@ def _supported_usb_impls() -> List[Type[MonitorUSB]]:
 
 
 def _usb_monitors(monitor_impls: List[Type[MonitorUSB]]) -> List[MonitorUSB]:
+    """
+    Finds all USB devices connected to the system and instantiates the corresponding MonitorUSB classes.
+    :param monitor_impls: a list of all MonitorUSB implementations
+    :return: a list of all MonitorUSB implementations with a connected USB device
+    """
     import usb1
     context = usb1.USBContext()
     devices = context.getDeviceList(skip_on_error=True)
@@ -54,6 +64,10 @@ def _usb_monitors(monitor_impls: List[Type[MonitorUSB]]) -> List[MonitorUSB]:
 
 
 def _ddcci_monitors() -> List[MonitorDDCCI]:
+    """
+    Finds all monitors connected to the system and instantiates the MonitorDDCCI class.
+    :return: a list of all MonitorDDCCI implementations
+    """
     import monitorcontrol
     monitors = monitorcontrol.get_monitors()
     return [MonitorDDCCI(monitor) for monitor in monitors]
@@ -74,6 +88,10 @@ def get_supported_monitors() -> List[MonitorBase]:
 
 
 class BaseApp(QMainWindow):
+    """
+    The main application window that contains all MonitorRows.
+    """
+
     def __init__(self, theme_cb: Callable[[], Theme], parent=None):
         super(BaseApp, self).__init__(parent, Qt.WindowType.Tool)
 
@@ -99,9 +117,15 @@ class BaseApp(QMainWindow):
         self.__sensor_timer.timeout.connect(self.update_ui_from_sensor)
 
         # Animations:
-        self.fade_animation = QPropertyAnimation(self, b"geometry")
-        self.fade_animation.finished.connect(lambda: self.__anim_lock.release())
-        self.fade_animation.finished.connect(self.activateWindow)
+        self.fade_up_animation = QPropertyAnimation(self, b"geometry")
+        self.fade_up_animation.finished.connect(self.__anim_lock.release)
+        self.fade_up_animation.finished.connect(self.activateWindow)
+        self.fade_up_animation.finished.connect(self.setFocus)
+
+        self.fade_down_animation = QPropertyAnimation(self, b"geometry")
+        self.fade_down_animation.finished.connect(self.__anim_lock.release)
+        self.fade_down_animation.finished.connect(self.clearFocus)
+
 
     @property
     def ui_config(self) -> UIConfig:
@@ -213,7 +237,7 @@ class BaseApp(QMainWindow):
 
     def redraw(self):
         logger.debug("Redrawing the app")
-        self.hide()
+        self.change_state("hide")
         self.__update_theme()
         self.__config_layout()
         self.setStyleSheet(self.ui_config.style_sheet)
@@ -228,7 +252,18 @@ class BaseApp(QMainWindow):
         if not self.__sensor_timer.isActive():
             logger.debug("Starting sensor timer")
             self.__sensor_timer.start(250)
-        self.show()
+
+    # catch outside clicks, which should change the state of the window to hide
+    def focusOutEvent(self, event: QFocusEvent):
+        logger.debug("focusOutEvent")
+        # get the position of the cursor and check if it is outside the window
+        if event.lostFocus():
+            if not self.geometry().contains(QCursor.pos()):
+                self.change_state("hide")
+                return
+
+        super().focusOutEvent(event)
+
 
     def change_state(self, new_state: Literal["show", "hide", "invert"] = "invert"):
         if self.top_left is None:
@@ -250,16 +285,18 @@ class BaseApp(QMainWindow):
         down = QRect(QPoint(self.top_left.x(), self.top_left.y() + self.minimumSizeHint().height()),
                      QPoint(self.top_left.x() + self.minimumSizeHint().width(),
                             self.top_left.y() + 2 * self.height()))
-
+        # make visible before animating
+        self.show()
         if new_state == "show":
             logger.debug(f"Showing window")
-            self.show()
-            self.ui_config.config_fade_animation(self.fade_animation, down, up)
-            self.fade_animation.start()
+            self.ui_config.config_fade_animation(self.fade_up_animation, down, up)
+            self.fade_up_animation.start()
         else:
             logger.debug(f"Hiding window")
-            self.ui_config.config_fade_animation(self.fade_animation, up, down)
-            self.fade_animation.start()
+            self.ui_config.config_fade_animation(self.fade_down_animation, up, down)
+            self.fade_down_animation.start()
+
+        self.updateGeometry()
 
     def show(self):
         super().show()
