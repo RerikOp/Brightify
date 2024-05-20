@@ -4,7 +4,8 @@ import winshell
 import sys
 from pathlib import Path
 
-from brightify import root_dir, app_name
+from brightify import root_dir, app_name, icon_light, icon_dark
+from brightify.windows.helpers import get_mode
 
 bat_file = root_dir / "scripts" / "windows" / "brightify.bat"
 no_console = root_dir / "scripts" / "windows" / "no-console.vbs"
@@ -68,7 +69,7 @@ def add_icon(force_console, directory):
             shortcut.path = "wscript.exe"
             shortcut.arguments = f"{str(no_console)} {str(bat_file)}"
         shortcut.description = f"Startup link for {app_name}"
-        icon_path = root_dir / "res" / "icon_light.ico"
+        icon_path = icon_light if get_mode() == "dark" else icon_dark
         if icon_path.exists():
             shortcut.icon_location = (str(icon_path), 0)
 

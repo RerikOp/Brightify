@@ -8,7 +8,7 @@ from PyQt6.QtGui import QFont, QFontMetrics
 
 from PyQt6.QtWidgets import QWidget, QSlider, QCheckBox, QLabel, QHBoxLayout
 
-from brightify import root_dir
+from brightify import icon_light, icon_dark
 from brightify.monitors.MonitorBase import MonitorBase
 from brightify.monitors.MonitorUSB import MonitorUSB
 from brightify.monitors.MonitorDDCCI import MonitorDDCCI
@@ -120,16 +120,13 @@ class UIConfig:
     max_label_width: int = -1
 
     # Icon
-    _icon_path: Path = dataclasses.field(default=root_dir / "res" / "icon_light.ico")
+    _icon_path: Path = dataclasses.field(default=icon_light)
 
     animation_duration: int = 100
 
     @property
     def icon_path(self):
-        if self.theme.mode == "dark":
-            return root_dir / "res" / "icon_light.ico"
-        if self.theme.mode == "light":
-            return root_dir / "res" / "icon_dark.ico"
+        return icon_light if self.theme.mode == "dark" else icon_dark
 
     @property
     def style_sheet(self):

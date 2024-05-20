@@ -15,7 +15,7 @@
        remove startup --mode task_scheduler`.
     2. To add a menu icon `python -m brightify add menu-icon`. Again, you can pass the `--force-console` argument
        force the terminal.
-       To remove the icon, run `python -m remove menu-icon`.
+       To remove the icon, run `python -m brightify remove menu-icon`.
 
 # Set up the brightness sensor
 
