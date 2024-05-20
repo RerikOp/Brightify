@@ -105,7 +105,7 @@ class WindowsApp:
         self._update_top_left()
         self.base_app.redraw()
         self._create_icon()
-        self.base_app.hide()
+        self.base_app.change_state("hide")
         return 0
 
     def _on_command(self, hwnd=None, msg=None, wparam=None, lparam=None):
