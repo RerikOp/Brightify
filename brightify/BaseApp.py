@@ -125,6 +125,7 @@ class BaseApp(QMainWindow):
         self.fade_down_animation = QPropertyAnimation(self, b"geometry")
         self.fade_down_animation.finished.connect(self.__anim_lock.release)
         self.fade_down_animation.finished.connect(self.clearFocus)
+        self.fade_down_animation.finished.connect(self.hide)
 
     @property
     def ui_config(self) -> UIConfig:
