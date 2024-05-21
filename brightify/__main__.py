@@ -35,9 +35,16 @@ def main_win(app: QApplication):
     exit(ret_code)
 
 
-def main_linux():
-    raise NotImplementedError("Linux not supported yet")
-
+def main_linux(app):
+    # from brightify.linux.LinuxApp import LinuxApp
+    from brightify.linux.helpers import get_theme
+    base_app = BaseApp(get_theme)
+    logger.critical("Linux not supported yet, this will most likely crash")
+    base_app.top_left = (0, 0)
+    base_app.show()
+    ret_code = app.exec()
+    logger.info(f"Exiting with code {ret_code}")
+    exit(ret_code)
 
 def main_darwin():
     raise NotImplementedError("MacOS not supported yet")
@@ -87,7 +94,7 @@ def run():
                 main_win(app)
             case "Linux":
                 logger.debug("Running on Linux")
-                main_linux()
+                main_linux(app)
             case "Darwin":
                 logger.debug("Running on MacOS")
                 main_darwin()

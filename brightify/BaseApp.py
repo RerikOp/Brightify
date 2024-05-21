@@ -1,5 +1,5 @@
 import threading
-from typing import List, Tuple, Type, Callable, Generator, Optional, Literal, Dict
+from typing import List, Tuple, Type, Callable, Generator, Optional, Literal, Dict, Any
 
 from PyQt6 import QtCore
 from PyQt6.QtCore import QPoint, Qt, QRect, QPropertyAnimation, QTimer, QThread
@@ -103,7 +103,7 @@ class BaseApp(QMainWindow):
 
         self.__anim_lock: threading.Lock = threading.Lock()
         # Store the top left corner given by the OS
-        self.top_left: QPoint | None = None
+        self.__top_left: QPoint | None = None
         self.__get_theme = theme_cb
         self.__ui_config: UIConfig = UIConfig()
         self.__sensor_comm = SensorComm()
@@ -126,6 +126,18 @@ class BaseApp(QMainWindow):
         self.fade_down_animation.finished.connect(self.__anim_lock.release)
         self.fade_down_animation.finished.connect(self.clearFocus)
         self.fade_down_animation.finished.connect(self.hide)
+
+    @property
+    def top_left(self) -> QPoint | None:
+        return self.__top_left
+
+    @top_left.setter
+    def top_left(self, value: QPoint | Tuple[int, int] | Any):
+        if isinstance(value, tuple):
+            value = QPoint(*value)
+        elif not isinstance(value, QPoint):
+            raise TypeError(f"Expected QPoint or Tuple[int, int], got {type(value)}")
+        self.__top_left = value
 
     @property
     def ui_config(self) -> UIConfig:

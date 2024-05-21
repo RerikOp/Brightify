@@ -3,7 +3,6 @@ from typing import Literal
 
 from brightify import host_os
 from brightify.UIConfig import Theme
-from brightify.monitors.MonitorBase import MonitorBase
 
 if host_os != "Windows":
     raise RuntimeError("This code is designed to run on Windows only")
