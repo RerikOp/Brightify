@@ -59,5 +59,5 @@ def get_mode() -> Literal["light", "dark"]:
     return "dark"
 
 def get_theme() -> Theme:
-    logger.info("Using Theme from Linux")
-    return Theme(mode=get_mode())
+    logger.info("Using Theme from Linux, callback not yet implemented")
+    return Theme()

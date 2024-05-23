@@ -41,6 +41,7 @@ def main_linux(app):
     base_app = BaseApp(get_theme)
     logger.critical("Linux not supported yet, this will most likely crash")
     base_app.top_left = (0, 0)
+    base_app.redraw()
     base_app.show()
     ret_code = app.exec()
     logger.info(f"Exiting with code {ret_code}")
