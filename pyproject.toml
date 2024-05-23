@@ -30,4 +30,5 @@ dependencies = [
     'winshell; platform_system == "Windows"'
 ]
 
-repository = "https://github.com/RerikOp/Brightify"
+
+homepage = "https://github.com/RerikOp/Brightify"
