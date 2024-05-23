@@ -29,6 +29,3 @@ dependencies = [
     'pywin32; platform_system == "Windows"',
     'winshell; platform_system == "Windows"'
 ]
-
-
-homepage = "https://github.com/RerikOp/Brightify"
