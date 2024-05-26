@@ -1,90 +1,23 @@
+import logging
 import threading
-from typing import List, Tuple, Type, Callable, Generator, Optional, Literal, Dict, Any
+from typing import List, Tuple, Type, Callable, Generator, Literal, Any
 
 from PyQt6 import QtCore
-from PyQt6.QtCore import QPoint, Qt, QRect, QPropertyAnimation, QTimer, QThread
-from PyQt6.QtGui import QFocusEvent, QCursor, QRegion, QPainterPath
-from PyQt6.QtWidgets import QMainWindow, QWidget, QVBoxLayout
+from PyQt6.QtCore import QPoint, Qt, QRect, QPropertyAnimation, QTimer, QThread, QObject, QEvent, QEasingCurve
+from PyQt6.QtGui import QFocusEvent, QCursor
+from PyQt6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QApplication, QLabel, QPushButton
 
 from brightify import app_name, root_dir
 from brightify.SensorComm import SensorComm
-from brightify.UIConfig import UIConfig, Theme
-from brightify.UIConfig import MonitorRow
-
-import logging
-
+from brightify.monitors.finder import get_supported_monitors
+from brightify.ui_config import MonitorRow
+from brightify.ui_config import UIConfig, Theme
 from brightify.monitors.MonitorBase import MonitorBase
 from brightify.monitors.MonitorDDCCI import MonitorDDCCI
 from brightify.monitors.MonitorUSB import MonitorUSB
 
 # use global logger
 logger = logging.getLogger(app_name)
-
-
-def _supported_usb_impls() -> List[Type[MonitorUSB]]:
-    """
-    Finds all user implemented MonitorUSB classes in the monitors directory.
-    :return: a list of all MonitorUSB implementations
-    """
-    import os, importlib, inspect
-    monitor_impls = set()
-    directory = "monitors"
-    for filename in os.listdir(root_dir / directory):
-        if not filename.endswith(".py"):
-            continue
-        module_name = filename.replace(".py", "")
-        full_module_name = f"{__package__}.{directory}.{module_name}"
-        try:
-            module = importlib.import_module(full_module_name)
-            for name, obj in inspect.getmembers(module):
-                if inspect.isclass(obj) and issubclass(obj, MonitorUSB) and obj is not MonitorUSB:
-                    monitor_impls.add(obj)
-        except ImportError:
-            pass
-    return list(monitor_impls)
-
-
-def _usb_monitors(monitor_impls: List[Type[MonitorUSB]]) -> List[MonitorUSB]:
-    """
-    Finds all USB devices connected to the system and instantiates the corresponding MonitorUSB classes.
-    :param monitor_impls: a list of all MonitorUSB implementations
-    :return: a list of all MonitorUSB implementations with a connected USB device
-    """
-    import usb1
-    context = usb1.USBContext()
-    devices = context.getDeviceList(skip_on_error=True)
-    monitor_inst: List[Tuple[Type[MonitorUSB], usb1.USBDevice]] = []
-    for dev in devices:
-        for impl in monitor_impls:
-            if impl.vid() == dev.getVendorID() and impl.pid() == dev.getProductID():
-                monitor_inst.append((impl, dev))
-                break
-
-    return [impl(dev) for impl, dev in monitor_inst]
-
-
-def _ddcci_monitors() -> List[MonitorDDCCI]:
-    """
-    Finds all monitors connected to the system and instantiates the MonitorDDCCI class.
-    :return: a list of all MonitorDDCCI implementations
-    """
-    import monitorcontrol
-    monitors = monitorcontrol.get_monitors()
-    return [MonitorDDCCI(monitor) for monitor in monitors]
-
-
-def get_supported_monitors() -> List[MonitorBase]:
-    """
-    Finds all user implemented MonitorUSB classes and instantiates them with the corresponding USB device.
-    If a monitor without a USB device is found or an implementation is missing, we try to connect to the monitor via DDC-CI.
-    :return: a list of all MonitorBase implementations
-    """
-    monitor_impls = _supported_usb_impls()
-    usb_monitors = _usb_monitors(monitor_impls)
-    logger.info(f"Found {len(usb_monitors)} USB monitor(s) with implementation: {[m.name() for m in usb_monitors]}")
-    ddcci_monitors = _ddcci_monitors()
-    logger.info(f"Found {len(ddcci_monitors)} DDCCI monitor(s)")
-    return usb_monitors + ddcci_monitors
 
 
 class BaseApp(QMainWindow):
@@ -101,8 +34,9 @@ class BaseApp(QMainWindow):
         self.central_widget.setLayout(self.rows)
         self.setCentralWidget(self.central_widget)
 
+        # Lock for animations, rapid clicks can cause multiple animations to run at the same time
         self.__anim_lock: threading.Lock = threading.Lock()
-        # Store the top left corner given by the OS
+        # Store the top left corner given by the OS to be used to position the window
         self.__top_left: QPoint | None = None
         self.__get_theme = theme_cb
         self.__ui_config: UIConfig = UIConfig()
@@ -127,6 +61,9 @@ class BaseApp(QMainWindow):
         self.fade_down_animation.finished.connect(self.clearFocus)
         self.fade_down_animation.finished.connect(self.hide)
 
+        # Install event filter on the application to detect when the window loses focus
+        QApplication.instance().installEventFilter(self)
+
     @property
     def top_left(self) -> QPoint | None:
         return self.__top_left
@@ -146,9 +83,9 @@ class BaseApp(QMainWindow):
     def __config_layout(self):
         self.setWindowTitle(app_name)
         self.setWindowFlags(self.windowFlags() | QtCore.Qt.WindowType.FramelessWindowHint)
-        self.rows.setContentsMargins(self.ui_config.pad_horizontal, self.ui_config.pad_vertical,
-                                     self.ui_config.pad_horizontal, self.ui_config.pad_vertical)
-        self.rows.setSpacing(self.ui_config.pad_horizontal)
+        self.rows.setContentsMargins(self.ui_config.pad, self.ui_config.pad,
+                                     self.ui_config.pad, self.ui_config.pad)
+        self.rows.setSpacing(self.ui_config.pad)
 
     @staticmethod
     def __config_slider(row: MonitorRow):
@@ -213,6 +150,13 @@ class BaseApp(QMainWindow):
             if widget is not None:
                 widget.deleteLater()
 
+    def __add_reload_button(self):
+        # add a reload button to the top of self.rows
+        reload_button = QPushButton("Reload", self)
+        reload_button.clicked.connect(self.redraw)
+        reload_button.setStyleSheet(self.ui_config.button_style)
+        self.rows.addWidget(reload_button)
+
     def __load_rows(self):
         self.clear_rows()
         max_name_width = 0
@@ -221,6 +165,8 @@ class BaseApp(QMainWindow):
         if not monitors:
             logger.warning("No monitors were found - try to reconnect the monitor")
             return
+
+        self.__add_reload_button()
 
         for m in monitors:
             logger.info(f"Adding monitor: {m.name()}")
@@ -248,13 +194,15 @@ class BaseApp(QMainWindow):
         logger.debug(f"Theme updated to: {theme}")
 
     def redraw(self):
+        if self.top_left is None:
+            logger.warning("Top left corner not set, cannot position the window. Using default position.")
+            screen = QApplication.primaryScreen().availableGeometry()
+            self.top_left = QPoint(screen.width() // 2, screen.height() // 2)
         logger.debug("Redrawing the app")
-        self.change_state("hide")
         self.__update_theme()
         self.__config_layout()
         self.setStyleSheet(self.ui_config.style_sheet)
         self.__load_rows()
-        # The OS must set the top left corner, and invoke this function
         self.move(self.top_left)
         # start the sensor thread if it is not running
         if not self.__sensor_thread.isRunning():
@@ -265,15 +213,12 @@ class BaseApp(QMainWindow):
             logger.debug("Starting sensor timer")
             self.__sensor_timer.start(250)
 
-    # catch outside clicks, which should change the state of the window to hide
-    def focusOutEvent(self, event: QFocusEvent):
-        # get the position of the cursor and check if it is outside the window
-        if event.lostFocus():
-            if not self.geometry().contains(QCursor.pos()):
-                self.change_state("hide")
-                return
-
-        super().focusOutEvent(event)
+    def eventFilter(self, obj: QObject, event: QEvent) -> bool:
+        if event.type() == QEvent.Type.WindowDeactivate and obj is self:
+            # The application window has lost focus
+            self.change_state("hide")
+            return True  # Event was handled
+        return super().eventFilter(obj, event)
 
     def change_state(self, new_state: Literal["show", "hide", "invert"] = "invert"):
         if self.top_left is None:
@@ -306,6 +251,3 @@ class BaseApp(QMainWindow):
             self.fade_down_animation.start()
 
         self.updateGeometry()
-
-    def show(self):
-        super().show()

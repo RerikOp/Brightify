@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import QApplication
 
 from brightify import app_name, host_os, root_dir
 from brightify.BaseApp import BaseApp
-from brightify.Brightylog import configure_logging, start_logging
+from brightify.brightylog import configure_logging, start_logging
 
 # use global logger
 logger = logging.getLogger(app_name)
@@ -46,6 +46,7 @@ def main_linux(app):
     ret_code = app.exec()
     logger.info(f"Exiting with code {ret_code}")
     exit(ret_code)
+
 
 def main_darwin():
     raise NotImplementedError("MacOS not supported yet")

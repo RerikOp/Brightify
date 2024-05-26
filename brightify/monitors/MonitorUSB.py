@@ -7,11 +7,8 @@ from typing import Optional
 import usb1
 import atexit
 
-from brightify import app_name
 from brightify.monitors.MonitorBase import MonitorBase
-
-
-logger = logging.getLogger(app_name)
+from brightify.monitors.MonitorBase import logger
 
 
 class MonitorUSB(MonitorBase):

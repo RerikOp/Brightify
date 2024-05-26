@@ -111,8 +111,7 @@ class UIConfig:
     theme: Theme = dataclasses.field(default_factory=Theme)
 
     # Layout:
-    pad_horizontal: int = 5
-    pad_vertical: int = 25
+    pad: int = 5
 
     # The maximum width of the label in the MonitorRow, or -1 if unbounded
     max_label_width: int = -1
@@ -133,6 +132,19 @@ class UIConfig:
             color: {self.theme.text_color};
         """
 
+    @property
+    def button_style(self):
+        return f"""
+            QPushButton {{
+                background-color: {self.theme.accent_color};
+                color: {self.theme.text_color}; 
+                font-family: {self.theme.font};
+                font-size: {self.theme.font_size}px;
+                border: 1px solid {self.theme.accent_color};
+                border-radius: 5px;
+                padding: 5px;
+            }}
+        """
     def config_fade_animation(self, fa: QPropertyAnimation,
                               start_geometry: QtCore.QRect,
                               end_geometry: QtCore.QRect):
