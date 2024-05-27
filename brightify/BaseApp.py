@@ -147,13 +147,23 @@ class BaseApp(QMainWindow):
             if isinstance(widget, MonitorRow):
                 if widget.monitor is not None:
                     widget.monitor.__del__()  # delete the monitor object
-            if widget is not None:
-                widget.deleteLater()
+                self.rows.removeWidget(widget)
+                widget.hide()  # hide the widget
+                widget.deleteLater()  # schedule the widget for deletion
+
+    def run_once(self, animation: QPropertyAnimation, finished: Callable[[], Any]):
+        def run_and_disconnect():
+            finished()
+            animation.finished.disconnect(run_and_disconnect)
+
+        animation.finished.connect(run_and_disconnect)
 
     def __add_reload_button(self):
+
         # add a reload button to the top of self.rows
         reload_button = QPushButton("Reload", self)
-        reload_button.clicked.connect(self.redraw)
+        reload_button.clicked.connect(lambda: self.change_state("hide"))
+        reload_button.clicked.connect(lambda: self.run_once(self.fade_down_animation, self.redraw))
         reload_button.setStyleSheet(self.ui_config.button_style)
         self.rows.addWidget(reload_button)
 
