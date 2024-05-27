@@ -9,8 +9,8 @@ The app is designed to be run in the background and can be controlled via a task
 [GitHub](https://github.com/RerikOp/Brightify) and install it with `pip install -e .` in the root directory.
 2. To start the app: `python -m brightify run`. You can exit either by right-clicking the icon in the taskbar and
    selecting "Exit" or by pressing `Ctrl+C` in the terminal.
-3. To start the app at startup (or logon) and add a menu icon, run `python -m add all`. To remove the both, run
-   `python -m remove all`.
+3. To start the app at startup (or logon) and add a menu icon, run `python -m brightify add all`. To remove the both, run
+   `python -m brightify remove all`.
 
 ## Optional arguments
 There are several other arguments you can pass to the app, see `python -m brightify --help` for more information.
