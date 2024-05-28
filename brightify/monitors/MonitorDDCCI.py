@@ -52,7 +52,7 @@ class MonitorDDCCI(MonitorBase):
                     return self.monitor.get_luminance()
                 except monitorcontrol.vcp.vcp_abc.VCPError:
                     pass
-        logger.debug(f"Failed to get luminance of CCDDI monitor {self.name()}")
+        logger.debug(f"Failed to get luminance of DDCCI monitor {self.name()}")
         return None
 
     def set_brightness(self, brightness: int, blocking: bool = False, force: bool = False) -> None:
@@ -64,4 +64,4 @@ class MonitorDDCCI(MonitorBase):
                     return
                 except monitorcontrol.vcp.vcp_abc.VCPError:
                     pass
-        logger.debug(f"Failed to set luminance of CCDDI monitor {self.name()}")
+        logger.debug(f"Failed to set luminance of DDCCI monitor {self.name()}")

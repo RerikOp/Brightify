@@ -101,7 +101,7 @@ class BaseApp(QMainWindow):
             row.slider.setValue(initial_brightness)
         else:
             row.slider.setValue(0)
-        # for CCDDI monitors, set the brightness after releasing the slider to prevent lag
+        # for DDCCI monitors, set the brightness after releasing the slider to prevent lag
         if isinstance(monitor, MonitorDDCCI):
             row.slider.sliderReleased.connect(lambda: monitor.set_brightness(row.slider.value(), force=True))
         if isinstance(monitor, MonitorUSB):

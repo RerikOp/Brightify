@@ -6,10 +6,10 @@ import wmi
 class WMIMonitor(MonitorBase):
     def __init__(self):
         super().__init__(0, 100)
-        self.wmi = wmi.WMI(namespace='wmi')
+        self.c = wmi.WMI(namespace='wmi')
         self.methods = None
         try:
-            self.methods = self.wmi.WmiMonitorBrightnessMethods()[0]
+            self.methods = self.c.WmiMonitorBrightnessMethods()[0]
         except wmi.x_wmi as _:
             logger.error("Internal monitor not found.")
             return
@@ -17,10 +17,14 @@ class WMIMonitor(MonitorBase):
     @staticmethod
     def has_wmi_monitor() -> bool:
         try:
-            wmi.WMI(namespace='wmi').WmiMonitorBrightnessMethods()[0]
+            methods = wmi.WMI(namespace='wmi').WmiMonitorBrightnessMethods()[0]
+            _ = methods.WmiGetBrightness()[0]
             return True
+        except AttributeError:
+            return False
         except wmi.x_wmi as _:
             return False
+
     @staticmethod
     def get_type():
         return "WMI"
