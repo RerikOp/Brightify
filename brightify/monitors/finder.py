@@ -51,13 +51,33 @@ def _usb_monitors(monitor_impls: List[Type[MonitorUSB]]) -> List[MonitorUSB]:
 def _ddcci_monitors() -> List[MonitorDDCCI]:
     """
     Finds all monitors connected to the system and instantiates the MonitorDDCCI class.
+    As DDC/CI is not always reliable, we try to connect multiple times.
     :return: a list of all MonitorDDCCI implementations
     """
     import monitorcontrol
-    # time the operation
     monitors = monitorcontrol.get_monitors()
-    # print the time it took in milliseconds
-    return [MonitorDDCCI(monitor) for monitor in monitors]
+    impls = []
+    for monitor in monitors:
+        m_impl = MonitorDDCCI(monitor)
+        is_working, name_found = False, False
+        for _ in range(m_impl.max_tries):
+            if not is_working:
+                is_working = m_impl.get_brightness() is not None
+            if not name_found:
+                m_impl.update_cap()
+                name_found = not m_impl.is_unknown
+            if is_working and name_found:
+                break
+        if is_working:
+            impls.append(m_impl)
+            if not name_found:
+                logger.info(f"Found undefined DDCCI Monitor")
+            else:
+                logger.info(f"Found DDCCI Monitor {m_impl.name()}")
+        else:
+            logger.info(f"Failed to connect to DDCCI monitor")
+
+    return impls
 
 
 def _internal_monitors() -> List[MonitorBase]:
@@ -83,7 +103,6 @@ def get_supported_monitors() -> List[MonitorBase]:
     logger.info(f"Found {len(usb_monitors)} USB monitor(s) with implementation: {[m.name() for m in usb_monitors]}")
     all_ddcci_monitors = _ddcci_monitors()
     internal_monitors = _internal_monitors()
-    logger.info(f"Found {len(internal_monitors)} internal monitor(s)")
     # remove DD/CCI monitors if they are already connected via USB
     ddcci_monitors = [m for m in all_ddcci_monitors if not any(m.name() == usb_m.name() for usb_m in usb_monitors)]
     if (diff := len(all_ddcci_monitors) - len(ddcci_monitors)) > 0:
