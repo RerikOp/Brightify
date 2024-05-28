@@ -6,10 +6,12 @@ import wmi
 class WMIMonitor(MonitorBase):
     def __init__(self):
         super().__init__(0, 100)
-        self.c = wmi.WMI(namespace='wmi')
-        self.methods = None
+        self.wmi = wmi.WMI(namespace='wmi')
+        self.__set_brightness = None
+        self.__get_brightness = None
         try:
-            self.methods = self.c.WmiMonitorBrightnessMethods()[0]
+            self.__set_brightness = lambda value: self.wmi.WmiMonitorBrightnessMethods()[0].WmiSetBrightness(value, 0)
+            self.__get_brightness = lambda: self.wmi.WmiMonitorBrightness()[0].CurrentBrightness
         except wmi.x_wmi as _:
             logger.error("Internal monitor not found.")
             return
@@ -17,8 +19,8 @@ class WMIMonitor(MonitorBase):
     @staticmethod
     def has_wmi_monitor() -> bool:
         try:
-            methods = wmi.WMI(namespace='wmi').WmiMonitorBrightnessMethods()[0]
-            _ = methods.WmiGetBrightness()[0]
+            _ = wmi.WMI(namespace='wmi').WmiMonitorBrightnessMethods()[0].WmiSetBrightness
+            _ = wmi.WMI(namespace='wmi').WmiMonitorBrightness()[0].CurrentBrightness
             return True
         except AttributeError:
             return False
@@ -30,14 +32,10 @@ class WMIMonitor(MonitorBase):
         return "WMI"
 
     def get_brightness(self, blocking: bool = False, force: bool = False) -> int | None:
-        if self.methods is None:
-            return None
-        return self.methods.WmiGetBrightness()[0]
+        return self.__get_brightness()
 
     def set_brightness(self, brightness: int, blocking: bool = False, force: bool = False) -> None:
-        if self.methods is None:
-            return
-        self.methods.WmiSetBrightness(brightness, 0)
+        self.__set_brightness(brightness)
 
     def name(self):
         return "Internal"
