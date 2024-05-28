@@ -89,5 +89,4 @@ def get_supported_monitors() -> List[MonitorBase]:
     if (diff := len(all_ddcci_monitors) - len(ddcci_monitors)) > 0:
         logger.info(f"Removed {diff} DDCCI monitor(s) already connected via USB")
 
-
-    return usb_monitors + ddcci_monitors
+    return usb_monitors + ddcci_monitors + internal_monitors
