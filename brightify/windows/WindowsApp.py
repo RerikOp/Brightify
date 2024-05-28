@@ -23,8 +23,9 @@ class WindowsApp:
     # For documentation of objects, see http://timgolden.me.uk/pywin32-docs/objects.html
     # For documentation of functions, see http://timgolden.me.uk/pywin32-docs/win32gui.html
     def __init__(self, base_app: BaseApp):
+        # Listen for taskbar restarts
         WM_TASKBAR_CREATED = win32gui.RegisterWindowMessage("TaskbarCreated")
-        # TODO listen for USB connected
+
         # to receive messages from the os
         self.WM_ICON = win32con.WM_USER + 42
         self.base_app = base_app
@@ -32,6 +33,8 @@ class WindowsApp:
         self.message_map = {
             # if taskbar is (re)started we must recreate the icon for this program
             WM_TASKBAR_CREATED: self._on_restart,
+            # if the display changes, we must update the top left corner of the app
+            win32con.WM_DISPLAYCHANGE: self._on_restart,
             # on destroy message
             win32con.WM_DESTROY: self._on_destroy,
             # parses the commands that are registers throughout this program
@@ -148,7 +151,7 @@ class WindowsApp:
         try:
             win32gui.Shell_NotifyIcon(win32gui.NIM_ADD, nid)
         except win32gui.error:
-            logger.critical("Failed to add the icon to the system tray")
+            logger.debug("Failed to add the icon to the system tray, it may already be there")
             pass
 
     def exit(self):

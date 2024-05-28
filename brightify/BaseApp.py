@@ -159,7 +159,6 @@ class BaseApp(QMainWindow):
         animation.finished.connect(run_and_disconnect)
 
     def __add_reload_button(self):
-
         # add a reload button to the top of self.rows
         reload_button = QPushButton("Reload", self)
         reload_button.clicked.connect(lambda: self.change_state("hide"))

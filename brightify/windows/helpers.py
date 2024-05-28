@@ -16,6 +16,7 @@ except ImportError as e:
 # Use OS specific logger
 logger = logging.getLogger("Windows")
 
+
 def get_registry_key(sub_key: str, name: str):
     import winreg
     try:

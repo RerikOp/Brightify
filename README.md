@@ -31,5 +31,7 @@ There are several other arguments you can pass to the app, see `python -m bright
 ## Remarks
 - Currently, only the Windows task bar icon is supported, the main part of this app is OS independent.
 - Feel free to create a pull request and add your own USB Monitor
+- Note that a USB Monitor will replace a DDC/CI Monitor with the same name. If you want to use both, you need to change the name of your USB Monitor implementation.
+In case a monitor is found but does not send its name, we cannot distinguish between DDC/CI and USB Monitors. In this case, both will be added.
 
 

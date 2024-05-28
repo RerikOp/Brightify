@@ -8,7 +8,7 @@ from PyQt6.QtGui import QFont, QFontMetrics
 
 from PyQt6.QtWidgets import QWidget, QSlider, QCheckBox, QLabel, QHBoxLayout
 
-from brightify import icon_light, icon_dark
+from brightify import icon_light, icon_dark, host_os
 from brightify.monitors.MonitorBase import MonitorBase
 from brightify.monitors.MonitorUSB import MonitorUSB
 from brightify.monitors.MonitorDDCCI import MonitorDDCCI
@@ -66,12 +66,8 @@ class MonitorRow(QWidget):
     @monitor.setter
     def monitor(self, value: MonitorBase):
         self.__monitor = value
-        if isinstance(value, MonitorUSB):
-            self.type_label.setText("[USB]")
-        elif isinstance(value, MonitorDDCCI):
-            self.type_label.setText("[DDCCI]")
-        else:
-            self.type_label.setText("[ANY]")
+        type_label_text = f"[{value.get_type()}]"
+        self.type_label.setText(type_label_text)
 
 
     @staticmethod

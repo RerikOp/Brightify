@@ -25,7 +25,6 @@ def main_win(app: QApplication):
     import win32gui
     from brightify.windows.WindowsApp import WindowsApp
     from brightify.windows.helpers import get_theme
-
     base_app = BaseApp(get_theme)
     WindowsApp(base_app)
     threading.Thread(target=win32gui.PumpMessages, daemon=True).start()

@@ -52,6 +52,10 @@ class MonitorUSB(MonitorBase):
     def device(self) -> usb1.USBDevice:
         return self.__device
 
+    @staticmethod
+    def get_type():
+        return "USB"
+
     def __del__(self):
         if self.__device is not None:
             logger.info(f"Closing monitor {self.name()}")

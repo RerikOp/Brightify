@@ -40,6 +40,10 @@ class MonitorDDCCI(MonitorBase):
     def default_name():
         return "Monitor"
 
+    @staticmethod
+    def get_type():
+        return "DDCCI"
+
     def get_brightness(self, blocking: bool = False, force: bool = False) -> Optional[int]:
         max_tries = 1 if not blocking and not force else self.max_tries
         for _ in range(max_tries):

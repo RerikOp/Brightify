@@ -37,6 +37,10 @@ class MonitorBase(ABC):
     def name(self):
         pass
 
+    @staticmethod
+    def get_type():
+        return "ANY"
+
     def convert_sensor_readings(self, readings: Iterable) -> Optional[int]:
         """
         Converts a number of sensor readings to the new brightness of this monitor
