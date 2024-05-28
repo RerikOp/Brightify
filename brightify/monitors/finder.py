@@ -1,4 +1,3 @@
-import timeit
 from typing import List, Type, Tuple
 from pathlib import Path
 
@@ -106,6 +105,6 @@ def get_supported_monitors() -> List[MonitorBase]:
     # remove DD/CCI monitors if they are already connected via USB
     ddcci_monitors = [m for m in all_ddcci_monitors if not any(m.name() == usb_m.name() for usb_m in usb_monitors)]
     if (diff := len(all_ddcci_monitors) - len(ddcci_monitors)) > 0:
-        logger.info(f"Removed {diff} DDCCI monitor(s) already connected via USB")
+        logger.debug(f"Removed {diff} DDCCI monitor(s) already connected via USB")
 
     return usb_monitors + ddcci_monitors + internal_monitors

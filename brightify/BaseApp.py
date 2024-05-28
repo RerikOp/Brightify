@@ -3,18 +3,16 @@ import threading
 from typing import List, Tuple, Type, Callable, Generator, Literal, Any
 
 from PyQt6 import QtCore
-from PyQt6.QtCore import QPoint, Qt, QRect, QPropertyAnimation, QTimer, QThread, QObject, QEvent, QEasingCurve
-from PyQt6.QtGui import QFocusEvent, QCursor
-from PyQt6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QApplication, QLabel, QPushButton
+from PyQt6.QtCore import QPoint, Qt, QRect, QPropertyAnimation, QTimer, QThread, QObject, QEvent
+from PyQt6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QApplication, QPushButton
 
-from brightify import app_name, root_dir
+from brightify import app_name
 from brightify.SensorComm import SensorComm
 from brightify.monitors.finder import get_supported_monitors
 from brightify.ui_config import MonitorRow
 from brightify.ui_config import UIConfig, Theme
 from brightify.monitors.MonitorBase import MonitorBase
 from brightify.monitors.MonitorDDCCI import MonitorDDCCI
-from brightify.monitors.MonitorUSB import MonitorUSB
 
 # use global logger
 logger = logging.getLogger(app_name)
@@ -178,7 +176,6 @@ class BaseApp(QMainWindow):
         self.__add_reload_button()
 
         for m in monitors:
-            logger.info(f"Adding monitor: {m.name()}")
             row = MonitorRow(self.ui_config.theme, parent=self)
             row.slider.setRange(m.min_brightness, m.max_brightness)
             row.name_label.setText(m.name())

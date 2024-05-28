@@ -6,7 +6,6 @@ from brightify.monitors.MonitorBase import MonitorBase
 from brightify.monitors.MonitorBase import logger
 
 
-# TODO is an internal Monitor also connected via DDCCI?
 class MonitorDDCCI(MonitorBase):
     def __init__(self, device: monitorcontrol.Monitor):
         # monitorcontrol.Monitor always uses 0-100 as brightness range

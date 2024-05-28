@@ -54,5 +54,4 @@ def get_mode() -> Literal["light", "dark"]:
 
 
 def get_theme() -> Theme:
-    logger.info("Using Theme from Windows")
     return Theme(mode=get_mode(), accent_color=get_color())
