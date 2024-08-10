@@ -2,6 +2,7 @@ import atexit
 import dataclasses
 import logging
 import time
+from dataclasses import field
 from typing import Optional, List
 from PyQt6.QtCore import QObject, pyqtSignal, pyqtSlot
 
@@ -19,13 +20,17 @@ class SensorComm(QObject):
     read_timeout_ms: int = 1000
     write_timeout_ms: int = 1000
     num_measurements: int = 10
-    measurements: List[int] = dataclasses.field(default_factory=list, init=False)
-    ser: Optional[serial.Serial] = dataclasses.field(default=None, init=False)
+    measurements: List[int] = field(default_factory=list, init=False)
+    ser: Optional[serial.Serial] = field(default=None, init=False)
     update_signal: pyqtSignal = dataclasses.field(default=pyqtSignal(), init=False)
     is_reading: bool = dataclasses.field(default=False, init=False)
+    # Check for new sensor connection every n updates
+    cycles_until_update: int = field(default=50)
+    update_cycles_passed: int = field(init=False)
 
     def __post_init__(self):
         super().__init__()
+        self.update_cycles_passed = self.cycles_until_update  # set to cycles_until_update to force an update
         # self.flash_firmware()
         self.update_signal.connect(self.update)
         atexit.register(self.__del__)
@@ -45,15 +50,20 @@ class SensorComm(QObject):
                 return None
         return None
 
-    def __update(self):
+    def __update(self):  # raise exceptions to the caller
         if not self.has_serial():
+            if self.update_cycles_passed < self.cycles_until_update:
+                self.update_cycles_passed += 1
+                return
+            self.update_cycles_passed = 0
+
             self.ser = serial.Serial(self.sensor_serial_port, self.baud_rate,
                                      timeout=self.read_timeout_ms / 1000,
                                      write_timeout=self.write_timeout_ms / 1000)
             if self.ser.is_open:
                 logger.info(f"Connected to sensor on {self.sensor_serial_port}")
             else:
-                return
+                return  # don't update if we can't connect to the sensor
 
         # Get the next reading from the sensor
         if (reading := self.get_measurement()) is not None:
@@ -78,8 +88,7 @@ class SensorComm(QObject):
     def has_serial(self) -> bool:
         if self.ser is not None and self.ser.is_open:
             try:
-                self.ser.in_waiting  # attempt to read from the serial port
-                return True
+                return self.ser.in_waiting > 0  # attempt to read from the serial port
             except serial.SerialException:
                 return False
         return False
