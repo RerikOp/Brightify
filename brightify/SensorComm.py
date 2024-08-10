@@ -1,6 +1,7 @@
 import atexit
 import dataclasses
 import logging
+import threading
 import time
 from dataclasses import field
 from typing import Optional, List
@@ -23,14 +24,11 @@ class SensorComm(QObject):
     measurements: List[int] = field(default_factory=list, init=False)
     ser: Optional[serial.Serial] = field(default=None, init=False)
     update_signal: pyqtSignal = dataclasses.field(default=pyqtSignal(), init=False)
-    is_reading: bool = dataclasses.field(default=False, init=False)
-    # Check for new sensor connection every n updates
-    cycles_until_update: int = field(default=50)
-    update_cycles_passed: int = field(init=False)
+
+    is_reading: bool = field(default=False, init=False)
 
     def __post_init__(self):
         super().__init__()
-        self.update_cycles_passed = self.cycles_until_update  # set to cycles_until_update to force an update
         # self.flash_firmware()
         self.update_signal.connect(self.update)
         atexit.register(self.__del__)
@@ -50,45 +48,55 @@ class SensorComm(QObject):
                 return None
         return None
 
-    def __update(self):  # raise exceptions to the caller
-        if not self.has_serial():
-            if self.update_cycles_passed < self.cycles_until_update:
-                self.update_cycles_passed += 1
-                return
-            self.update_cycles_passed = 0
+    def __cleanup(self):
+        self.measurements.clear()
+        self.ser = None
 
+    def reinit(self) -> bool:
+        """
+        Initialize the serial connection to the sensor.
+        :return: True if the connection was successful, False otherwise
+        """
+        success = False
+        self.is_reading = True
+        if self.has_serial():
+            logger.debug("Disconnecting from sensor")
+            self.ser.close()
+        try:
             self.ser = serial.Serial(self.sensor_serial_port, self.baud_rate,
                                      timeout=self.read_timeout_ms / 1000,
                                      write_timeout=self.write_timeout_ms / 1000)
-            if self.ser.is_open:
-                logger.info(f"Connected to sensor on {self.sensor_serial_port}")
-            else:
-                return  # don't update if we can't connect to the sensor
+            logger.info(f"Connected to sensor on {self.sensor_serial_port}")
+            success = True
+        except (serial.SerialException, PermissionError) as _:
+            logger.info(f"Did not find sensor on {self.sensor_serial_port}")
+            self.__cleanup()
+        except Exception as e:
+            logger.error(f"Error while updating sensor: {e}", exc_info=e)
+            self.__cleanup()
+        finally:
+            self.is_reading = False
+        return success
 
+    @pyqtSlot()
+    def update(self) -> None:
+        if not self.has_serial():
+            self.__cleanup()
+            return
+
+        self.is_reading = True
         # Get the next reading from the sensor
         if (reading := self.get_measurement()) is not None:
             self.measurements.append(reading)
             # trim the list of measurements to the last num_measurements
         self.measurements = self.measurements[-self.num_measurements:]
-
-    @pyqtSlot()
-    def update(self):
-        self.is_reading = True
-        try:
-            self.__update()
-        # it appears that SerialException or PermissionError is raised when the device is not connected
-        except (serial.SerialException, PermissionError) as _:
-            self.measurements.clear()
-        except Exception as e:
-            logger.error(f"Error while updating sensor: {e}", exc_info=e)
-            self.measurements.clear()
-        finally:
-            self.is_reading = False
+        self.is_reading = False
 
     def has_serial(self) -> bool:
         if self.ser is not None and self.ser.is_open:
             try:
-                return self.ser.in_waiting > 0  # attempt to read from the serial port
+                _ = self.ser.in_waiting  # attempt to read from the serial port
+                return True
             except serial.SerialException:
                 return False
         return False

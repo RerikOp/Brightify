@@ -36,6 +36,11 @@ class MonitorRow(QWidget):
         self.brightness_label = QLabel(self, font=self.font)
         self.is_auto_tick = QCheckBox(self)
 
+        # only changed when brightness sensor is connected
+        self.slider.setEnabled(True)
+        self.is_auto_tick.setChecked(False)
+        self.is_auto_tick.setEnabled(False)
+
         # The monitor that this row represents
         self.__monitor: Optional[MonitorBase] = monitor
 

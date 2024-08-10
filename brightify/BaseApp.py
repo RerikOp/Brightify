@@ -27,6 +27,7 @@ class BaseApp(QMainWindow):
 
         # The rows contain one MonitorRow for each supported Monitor connected
         self.rows: QVBoxLayout = QVBoxLayout()
+        self.monitor_rows: List[MonitorRow] = []  # initialized on redraw
         self.central_widget = QWidget(self)
         self.central_widget.setLayout(self.rows)
         self.setCentralWidget(self.central_widget)
@@ -92,8 +93,13 @@ class BaseApp(QMainWindow):
         row.slider.valueChanged.connect(lambda value: on_change(value))
 
     @staticmethod
-    def __connect_monitor(row: MonitorRow, monitor: MonitorBase):
-        initial_brightness = monitor.get_brightness(force=True)
+    def __connect_monitor(row: MonitorRow, monitor: MonitorBase) -> bool:
+        try:
+            initial_brightness = monitor.get_brightness(force=True)
+        except Exception as e:
+            logger.error(f"Failed to get initial brightness for {monitor.name()}: {e}. Dropping monitor.")
+            return False
+
         if initial_brightness is not None:
             row.slider.setValue(initial_brightness)
         else:
@@ -104,22 +110,22 @@ class BaseApp(QMainWindow):
         else:
             row.slider.valueChanged.connect(lambda value: monitor.set_brightness(value, force=True))
         row.monitor = monitor
-
-    def __get_monitor_rows(self) -> Generator[MonitorRow, None, None]:
-        for i in range(self.rows.count()):
-            row = self.rows.itemAt(i).widget()
-            if isinstance(row, MonitorRow):
-                yield row
+        return True
 
     def update_ui_from_sensor(self):
-        monitor_rows = list(filter(lambda r: r.monitor is not None, self.__get_monitor_rows()))
-        # if no sensor data is available, enable all sliders
-        if not self.__sensor_comm.measurements:
+        monitor_rows = list(filter(lambda r: r.monitor is not None, self.monitor_rows))
+
+        if not self.__sensor_comm.has_serial():
+            logger.info("Sensor disconnected, press reload to reconnect")
             for row in monitor_rows:
                 row.slider.setEnabled(True)  # enable the slider
                 row.is_auto_tick.setChecked(False)  # disable the auto tick
                 row.is_auto_tick.setEnabled(False)  # disable the auto tick
+            self.__sensor_timer.stop()
             return
+
+        if not self.__sensor_comm.measurements:
+            return  # no sensor data available, do nothing for now
 
         for row in monitor_rows:
             # enable the auto tick
@@ -139,6 +145,7 @@ class BaseApp(QMainWindow):
                 row.slider.sliderReleased.emit()
 
     def clear_rows(self):
+        self.monitor_rows.clear()
         while self.rows.count():
             widget = self.rows.takeAt(0).widget()
             if isinstance(widget, MonitorRow):
@@ -183,13 +190,18 @@ class BaseApp(QMainWindow):
             row.slider.setRange(m.min_brightness, m.max_brightness)
             row.name_label.setText(m.name())
             self.__config_slider(row)
-            self.__connect_monitor(row, m)
+            succ = self.__connect_monitor(row, m)
+            if not succ:
+                row.deleteLater()
+                continue
+
             self.rows.addWidget(row)
+            self.monitor_rows.append(row)
             max_name_width = max(max_name_width, row.name_label.minimumSizeHint().width())
             max_type_width = max(max_type_width, row.type_label.minimumSizeHint().width())
 
         # set the minimum width of the name labels to the maximum width over all labels
-        for row in self.__get_monitor_rows():
+        for row in self.monitor_rows:
             row.name_label.setMinimumWidth(max_name_width + 5)
             row.type_label.setMinimumWidth(max_type_width + 5)
             row.show()
@@ -211,14 +223,18 @@ class BaseApp(QMainWindow):
         self.setStyleSheet(self.ui_config.style_sheet)
         self.__load_rows()
         self.move(self.top_left)
-        # start the sensor thread if it is not running
-        if not self.__sensor_thread.isRunning():
-            logger.debug("Starting sensor thread")
-            self.__sensor_thread.start()
-        # start the sensor timer if it is not running
-        if not self.__sensor_timer.isActive():
-            logger.debug("Starting sensor timer")
-            self.__sensor_timer.start(250)
+        # On every redraw we (re)connect the sensor
+        has_sensor = self.__sensor_comm.reinit()
+        if has_sensor:
+            # start the sensor thread if it's not running
+            if not self.__sensor_thread.isRunning():
+                logger.debug("Initial start of sensor thread")
+                self.__sensor_thread.start()
+            if not self.__sensor_timer.isActive():
+                logger.debug("Starting sensor timer")
+                self.__sensor_timer.start(250)
+        else:
+            self.__sensor_timer.stop()
 
     def eventFilter(self, obj: QObject, event: QEvent) -> bool:
         # If not OS managed, an outside click should not do anything
