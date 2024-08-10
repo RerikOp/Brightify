@@ -17,10 +17,10 @@ except ImportError as e:
 logger = logging.getLogger("Windows")
 
 
-def get_registry_key(sub_key: str, name: str):
+def get_registry_key(sub_key: str, name: str, root_key=winreg.HKEY_CURRENT_USER):
     import winreg
     try:
-        key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, sub_key)
+        key = winreg.OpenKey(root_key, sub_key)
         value, reg_type = winreg.QueryValueEx(key, name)
         winreg.CloseKey(key)
         return value, reg_type
@@ -34,7 +34,7 @@ def get_registry_key(sub_key: str, name: str):
 
 def get_color() -> str:
     logger.debug("Requested accent color from OS")
-    color, reg_type = get_registry_key('Software\\Microsoft\\Windows\\DWM', 'ColorizationColor')
+    color, reg_type = get_registry_key(r'Software\Microsoft\Windows\DWM', 'ColorizationColor')
     if color is None:
         color = "#0078D4"
     else:
@@ -53,5 +53,13 @@ def get_mode() -> Literal["light", "dark"]:
         return "dark"
 
 
+def animation_enabled() -> bool:
+    logger.debug("Requested animations from OS")
+    animations, reg_type = get_registry_key(r"Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced",
+                                            "TaskbarAnimations")
+    return animations == 1
+
+
 def get_theme() -> Theme:
     return Theme(mode=get_mode(), accent_color=get_color())
+    #return Theme(mode=get_mode(), accent_color=get_color(), has_animations=animation_enabled())

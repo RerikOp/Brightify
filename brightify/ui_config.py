@@ -8,10 +8,8 @@ from PyQt6.QtGui import QFont, QFontMetrics
 
 from PyQt6.QtWidgets import QWidget, QSlider, QCheckBox, QLabel, QHBoxLayout
 
-from brightify import icon_light, icon_dark, host_os
+from brightify import icon_light, icon_dark
 from brightify.monitors.MonitorBase import MonitorBase
-from brightify.monitors.MonitorUSB import MonitorUSB
-from brightify.monitors.MonitorDDCCI import MonitorDDCCI
 
 
 @dataclasses.dataclass
@@ -19,11 +17,11 @@ class Theme:
     bg_color: str = dataclasses.field(default="#2A2A2A")
     text_color: str = dataclasses.field(default="white")
     accent_color: str = dataclasses.field(default="#0078D4")
-    # border color is slightly darker than bg_color
     border_color: str = dataclasses.field(default="#292929")
     font: str = dataclasses.field(default="Helvetica")
     font_size: int = dataclasses.field(default=13)
     mode: Literal["light", "dark"] = dataclasses.field(default="dark")
+    has_animations: bool = dataclasses.field(default=False)
 
 
 class MonitorRow(QWidget):

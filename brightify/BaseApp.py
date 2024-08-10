@@ -1,9 +1,8 @@
 import logging
-import threading
-from typing import List, Tuple, Type, Callable, Generator, Literal, Any
+from typing import List, Tuple, Callable, Generator, Literal, Any
 
 from PyQt6 import QtCore
-from PyQt6.QtCore import QPoint, Qt, QRect, QPropertyAnimation, QTimer, QThread, QObject, QEvent
+from PyQt6.QtCore import QPoint, Qt, QRect, QPropertyAnimation, QTimer, QThread, QObject, QEvent, QCoreApplication
 from PyQt6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QApplication, QPushButton
 
 from brightify import app_name
@@ -23,7 +22,7 @@ class BaseApp(QMainWindow):
     The main application window that contains all MonitorRows.
     """
 
-    def __init__(self, theme_cb: Callable[[], Theme], parent=None):
+    def __init__(self, theme_cb: Callable[[], Theme], os_managed=False, parent=None):
         super(BaseApp, self).__init__(parent, Qt.WindowType.Tool)
 
         # The rows contain one MonitorRow for each supported Monitor connected
@@ -32,30 +31,30 @@ class BaseApp(QMainWindow):
         self.central_widget.setLayout(self.rows)
         self.setCentralWidget(self.central_widget)
 
-        # Lock for animations, rapid clicks can cause multiple animations to run at the same time
-        self.__anim_lock: threading.Lock = threading.Lock()
-        # Store the top left corner given by the OS to be used to position the window
+        # On a state change (show/hide), prevent multiple clicks by waiting for
+        self.__click_lock: QTimer = QTimer(self)
+        self.__click_lock.setSingleShot(True)
+        self.__os_managed = os_managed
+
         self.__top_left: QPoint | None = None
         self.__get_theme = theme_cb
         self.__ui_config: UIConfig = UIConfig()
         self.__sensor_comm = SensorComm()
 
-        # Start timer that reads sensor data every 500ms
         self.__sensor_thread = QThread()
         self.__sensor_comm.moveToThread(self.__sensor_thread)
-
         self.__sensor_timer = QTimer(self)
         self.__sensor_timer.timeout.connect(self.__sensor_comm.update_signal.emit)
         self.__sensor_timer.timeout.connect(self.update_ui_from_sensor)
 
         # Animations:
         self.fade_up_animation = QPropertyAnimation(self, b"geometry")
-        self.fade_up_animation.finished.connect(self.__anim_lock.release)
+        self.fade_up_animation.finished.connect(self.__click_lock.stop)
         self.fade_up_animation.finished.connect(self.activateWindow)
         self.fade_up_animation.finished.connect(self.setFocus)
 
         self.fade_down_animation = QPropertyAnimation(self, b"geometry")
-        self.fade_down_animation.finished.connect(self.__anim_lock.release)
+        self.fade_down_animation.finished.connect(self.__click_lock.stop)
         self.fade_down_animation.finished.connect(self.clearFocus)
         self.fade_down_animation.finished.connect(self.hide)
 
@@ -145,11 +144,12 @@ class BaseApp(QMainWindow):
             if isinstance(widget, MonitorRow):
                 if widget.monitor is not None:
                     widget.monitor.__del__()  # delete the monitor object
-                self.rows.removeWidget(widget)
-                widget.hide()  # hide the widget
-                widget.deleteLater()  # schedule the widget for deletion
+            self.rows.removeWidget(widget)
+            widget.hide()  # hide the widget
+            widget.deleteLater()  # schedule the widget for deletion
 
-    def run_once(self, animation: QPropertyAnimation, finished: Callable[[], Any]):
+    @staticmethod
+    def run_once(animation: QPropertyAnimation, finished: Callable[[], Any]):
         def run_and_disconnect():
             finished()
             animation.finished.disconnect(run_and_disconnect)
@@ -160,7 +160,10 @@ class BaseApp(QMainWindow):
         # add a reload button to the top of self.rows
         reload_button = QPushButton("Reload", self)
         reload_button.clicked.connect(lambda: self.change_state("hide"))
-        reload_button.clicked.connect(lambda: self.run_once(self.fade_down_animation, self.redraw))
+        if self.ui_config.theme.has_animations:
+            reload_button.clicked.connect(lambda: self.run_once(self.fade_down_animation, self.redraw))
+        else:
+            reload_button.clicked.connect(self.redraw)
         reload_button.setStyleSheet(self.ui_config.button_style)
         self.rows.addWidget(reload_button)
 
@@ -201,9 +204,7 @@ class BaseApp(QMainWindow):
 
     def redraw(self):
         if self.top_left is None:
-            logger.warning("Top left corner not set, cannot position the window. Using default position.")
-            screen = QApplication.primaryScreen().availableGeometry()
-            self.top_left = QPoint(screen.width() // 2, screen.height() // 2)
+            self.top_left = self.default_position()
         logger.debug("Redrawing the app")
         self.__update_theme()
         self.__config_layout()
@@ -220,39 +221,62 @@ class BaseApp(QMainWindow):
             self.__sensor_timer.start(250)
 
     def eventFilter(self, obj: QObject, event: QEvent) -> bool:
+        # If not OS managed, an outside click should not do anything
         if event.type() == QEvent.Type.WindowDeactivate and obj is self:
-            # The application window has lost focus
             self.change_state("hide")
-            return True  # Event was handled
         return super().eventFilter(obj, event)
+
+    @staticmethod
+    def default_position():
+        screen = QApplication.primaryScreen().availableGeometry()
+        logger.debug("Requesting default position for window")
+        return QPoint(screen.width() // 2, screen.height() // 2)
+
+    def __activate(self):
+        self.raise_()
+        self.show()
+        self.activateWindow()
+        self.setFocus()
+
+    def __deactivate(self):
+        self.clearFocus()
+        self.hide()
 
     def change_state(self, new_state: Literal["show", "hide", "invert"] = "invert"):
         if self.top_left is None:
-            logger.error("Top left corner not set")
-            return
+            self.top_left = self.default_position()
+
         # prevent multiple animations
-        if self.__anim_lock.locked():
+        if self.__click_lock.isActive():
             return
 
-        # lock the animation
-        self.__anim_lock.acquire()
+        self.__click_lock.start(self.ui_config.animation_duration)
+
         if new_state == "invert":
-            new_state = "show" if self.geometry().topLeft() != self.top_left else "hide"
-        # TODO verify that screen rotation does not affect the animation on darwin and linux
+            new_state = "show" if self.isHidden() else "hide"
+
         up = QRect(self.top_left, QPoint(self.top_left.x() + self.minimumSizeHint().width(),
                                          self.top_left.y() + self.minimumSizeHint().height()))
-
         down = QRect(QPoint(self.top_left.x(), self.top_left.y() + self.minimumSizeHint().height()),
                      QPoint(self.top_left.x() + self.minimumSizeHint().width(),
                             self.top_left.y() + 2 * self.height()))
+        # only show or hide the window if animations are disabled
+        if not self.ui_config.theme.has_animations:
+            if new_state == "show":
+                self.setGeometry(up)
+                self.__activate()
+            else:
+                self.setGeometry(down)
+                self.__deactivate()
+            return
+
+        # TODO verify that screen rotation does not affect the animation on darwin and linux
         # make visible before animating
         self.show()
         if new_state == "show":
-            logger.debug(f"Showing window")
             self.ui_config.config_fade_animation(self.fade_up_animation, down, up)
             self.fade_up_animation.start()
         else:
-            logger.debug(f"Hiding window")
             self.ui_config.config_fade_animation(self.fade_down_animation, up, down)
             self.fade_down_animation.start()
 

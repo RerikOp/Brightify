@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 import time
 import usb1
 
@@ -36,7 +36,7 @@ class M27Q(MonitorUSB):
 
         self.last_interaction_ns = time.time_ns()
 
-    def usb_read(self, b_request: int, w_value: int, w_index: int, msg_length: int):
+    def usb_read(self, b_request: int, w_value: int, w_index: int, msg_length: int) -> Optional[bytearray]:
         bm_request_type = 0xC0
 
         with usb1.USBContext() as context:
@@ -44,15 +44,15 @@ class M27Q(MonitorUSB):
 
             if handle is None:
                 logger.error("Could not open device")
-                return
+                return None
 
-            data = handle.controlRead(bm_request_type, b_request, w_value, w_index, msg_length)
+            data: bytearray = handle.controlRead(bm_request_type, b_request, w_value, w_index, msg_length)
 
             self.last_interaction_ns = time.time_ns()
 
             return data
 
-    def get_osd(self, data: List[int] | bytearray):
+    def get_osd(self, data: List[int] | bytearray) -> Optional[int]:
         self.usb_write(
             b_request=178,
             w_value=0,
@@ -60,6 +60,8 @@ class M27Q(MonitorUSB):
             message=bytearray([0x6E, 0x51, 0x81 + len(data), 0x01]) + bytearray(data)
         )
         data = self.usb_read(b_request=162, w_value=0, w_index=111, msg_length=12)
+        if data is None:
+            return None
         return data[10]
 
     def set_osd(self, data: List[int] | bytearray):
@@ -88,7 +90,9 @@ class M27Q(MonitorUSB):
             if force:
                 responses = []
                 for _ in range(7):
-                    responses.append(self.get_osd([0x10]))
+                    resp = self.get_osd([0x10])
+                    if resp is not None:
+                        responses.append(resp)
                 resp = max(set(responses), key=responses.count)
             elif blocking:
                 self.wait()

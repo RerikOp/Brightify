@@ -25,7 +25,7 @@ def main_win(app: QApplication):
     import win32gui
     from brightify.windows.WindowsApp import WindowsApp
     from brightify.windows.helpers import get_theme
-    base_app = BaseApp(get_theme)
+    base_app = BaseApp(get_theme, os_managed=True)
     WindowsApp(base_app)
     threading.Thread(target=win32gui.PumpMessages, daemon=True).start()
     base_app.show()
@@ -37,11 +37,10 @@ def main_win(app: QApplication):
 def main_linux(app):
     # from brightify.linux.LinuxApp import LinuxApp
     from brightify.linux.helpers import get_theme
-    base_app = BaseApp(get_theme)
+    base_app = BaseApp(get_theme, os_managed=False)
     logger.critical("Linux not supported yet, this will most likely crash")
-    base_app.top_left = (0, 0)
     base_app.redraw()
-    base_app.show()
+    base_app.change_state("show")
     ret_code = app.exec()
     logger.info(f"Exiting with code {ret_code}")
     exit(ret_code)
@@ -87,8 +86,8 @@ def parse_args():
 
 
 def run():
+    app = QApplication(sys.argv)
     try:
-        app = QApplication(sys.argv)
         match host_os:
             case "Windows":
                 logger.debug("Running on Windows")
@@ -104,7 +103,7 @@ def run():
                 exit(1)
     except KeyboardInterrupt:
         logger.info("User interrupted the program, exiting...")
-        exit(0)
+        app.quit()
 
 
 def add_startup_task(force_console):

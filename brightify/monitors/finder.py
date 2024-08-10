@@ -102,6 +102,7 @@ def get_supported_monitors() -> List[MonitorBase]:
     logger.info(f"Found {len(usb_monitors)} USB monitor(s) with implementation: {[m.name() for m in usb_monitors]}")
     all_ddcci_monitors = _ddcci_monitors()
     internal_monitors = _internal_monitors()
+    logger.info(f"Found {len(internal_monitors)} internal monitor(s)")
     # remove DD/CCI monitors if they are already connected via USB
     ddcci_monitors = [m for m in all_ddcci_monitors if not any(m.name() == usb_m.name() for usb_m in usb_monitors)]
     if (diff := len(all_ddcci_monitors) - len(ddcci_monitors)) > 0:
