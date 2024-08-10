@@ -1,3 +1,5 @@
+from typing import Optional
+
 from PyQt6.QtCore import QPoint
 from PyQt6.QtWidgets import QApplication
 
@@ -22,13 +24,13 @@ logger = logging.getLogger("Windows")
 class WindowsApp:
     # For documentation of objects, see http://timgolden.me.uk/pywin32-docs/objects.html
     # For documentation of functions, see http://timgolden.me.uk/pywin32-docs/win32gui.html
-    def __init__(self, base_app: BaseApp):
+    def __init__(self, base_app: BaseApp | None = None):
         # Listen for taskbar restarts
         WM_TASKBAR_CREATED = win32gui.RegisterWindowMessage("TaskbarCreated")
 
         # to receive messages from the os
         self.WM_ICON = win32con.WM_USER + 42
-        self.base_app = base_app
+        self.base_app: Optional[BaseApp] = base_app
 
         self.message_map = {
             # if taskbar is (re)started we must recreate the icon for this program
@@ -97,6 +99,8 @@ class WindowsApp:
         return 0
 
     def _update_top_left(self):
+        if self.base_app is None:
+            return
         _, top, right, _ = win32gui.GetWindowRect(win32gui.FindWindow("Shell_TrayWnd", None))
         ratio = QApplication.primaryScreen().devicePixelRatio()
         x, y = (int((right / ratio - self.base_app.minimumSizeHint().width())),
@@ -105,10 +109,11 @@ class WindowsApp:
 
     def _on_restart(self, hwnd=None, msg=None, wparam=None, lparam=None):
         logger.debug("Taskbar restarted")
-        self._update_top_left()
-        self.base_app.redraw()
+        if self.base_app is not None:
+            self._update_top_left()
+            self.base_app.redraw()
+            self.base_app.change_state("hide")
         self._create_icon()
-        self.base_app.change_state("hide")
         return 0
 
     def _on_command(self, hwnd=None, msg=None, wparam=None, lparam=None):
@@ -121,8 +126,9 @@ class WindowsApp:
     def _on_icon_notify(self, hwnd=None, msg=None, wparam=None, lparam=None):
         x, y = win32gui.GetCursorPos()
         if lparam == win32con.WM_LBUTTONUP:
-            self._update_top_left()
-            self.base_app.change_state("invert")
+            if self.base_app is not None:
+                self._update_top_left()
+                self.base_app.change_state("invert")
         elif lparam == win32con.WM_RBUTTONUP:
             menu = win32gui.CreatePopupMenu()
             win32gui.AppendMenu(menu, win32con.MF_STRING, self.cmd_id_map["Exit"], "Exit")
@@ -134,8 +140,8 @@ class WindowsApp:
 
     def _create_icon(self):
         hinst = win32api.GetModuleHandle(None)
-        icon_path = self.base_app.ui_config.icon_path
-        if icon_path.exists():
+        icon_path = self.base_app.ui_config.icon_path if self.base_app is not None else None
+        if icon_path is not None and icon_path.exists():
             # specify that icon is loaded from a file and should be the default size
             icon_flags = win32con.LR_LOADFROMFILE | win32con.LR_DEFAULTSIZE
             # load the image and get handle
