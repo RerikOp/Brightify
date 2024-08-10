@@ -21,11 +21,11 @@ def excepthook(exc_type, exc_value, exc_tb):
     logger.exception("An unhandled exception occurred", exc_info=(exc_type, exc_value, exc_tb))
 
 
-def main_win(app: QApplication):
+def main_win(app: QApplication, args: argparse.Namespace):
     import win32gui
     from brightify.windows.WindowsApp import WindowsApp
     from brightify.windows.helpers import get_theme
-    base_app = BaseApp(get_theme, os_managed=True)
+    base_app = BaseApp(lambda: get_theme(args.no_animations), os_managed=True)
     WindowsApp(base_app)
     threading.Thread(target=win32gui.PumpMessages, daemon=True).start()
     base_app.show()
@@ -34,10 +34,10 @@ def main_win(app: QApplication):
     exit(ret_code)
 
 
-def main_linux(app):
+def main_linux(app: QApplication, args: argparse.Namespace):
     # from brightify.linux.LinuxApp import LinuxApp
     from brightify.linux.helpers import get_theme
-    base_app = BaseApp(get_theme, os_managed=False)
+    base_app = BaseApp(lambda: get_theme(args.no_animations), os_managed=True)
     logger.critical("Linux not supported yet, this will most likely crash")
     base_app.redraw()
     base_app.change_state("show")
@@ -46,19 +46,22 @@ def main_linux(app):
     exit(ret_code)
 
 
-def main_darwin():
+def main_darwin(app: QApplication, args: argparse.Namespace):
     raise NotImplementedError("MacOS not supported yet")
 
 
-def parse_args():
+def parse_args() -> argparse.Namespace:
+    def _add_to_parsers(_subparsers, _arg_name, _d):
+        for _s in _subparsers:
+            _s.add_argument(_arg_name, **_d)
+
     parser = argparse.ArgumentParser(description=app_name)
     subparsers = parser.add_subparsers(dest="command", help="The command to run. Defaults to 'run' if not specified.")
     parser.set_defaults(command="run")
 
     # python -m brightify run
     run_parser = subparsers.add_parser("run",
-                                       help="Runs Brightify. This is the default command if no other is specified.")
-
+                                       help="Runs Brightify from console. This is the default command if no other is specified.")
     # python -m brightify add
     add_parser = subparsers.add_parser("add", help="Add Brightify to the system.")
 
@@ -67,37 +70,40 @@ def parse_args():
 
     # python -m brightify add {startup, menu-icon, all}
     add_remove_actions = ["startup", "menu-icon", "all"]
-    add_parser.add_argument("action", choices=add_remove_actions, help="The action to perform. ")
-    # python -m brightify add {startup, menu-icon, all} [--force-console] [--use-scheduler]
+
+    # python -m brightify add {startup, menu-icon, all} [--force-console] [--use-scheduler] [--disable-animations]
     add_parser.add_argument("--force-console", action="store_true", default=False,
                             help="Always show the console when starting the app via task / icon etc.")
+    no_animation = {"action": "store_true", "default": False,
+                     "help": "Disable animations. If the OS does not support icons in the system tray, this will be ignored - it never has animations."}
+
+    _add_to_parsers([add_parser, run_parser], "--no-animations", no_animation)
 
     # OSs have a scheduler (Linux has cron, Windows has task scheduler, etc.)
-    # TODO way to specify the scheduler?
     use_scheduler = {"action": "store_true", "default": False,
                      "help": "Use the OS scheduler. On Windows, this will create a task in the task scheduler, which requires elevated permissions. Ignored when targeting menu icon."}
-    add_parser.add_argument("--use-scheduler", **use_scheduler)
 
     # python -m brightify remove {startup, menu-icon, all} [--use-scheduler]
-    remove_parser.add_argument("action", choices=add_remove_actions, help="The action to perform.")
-    remove_parser.add_argument("--use-scheduler", **use_scheduler)
+    _add_to_parsers([add_parser, remove_parser], "--use-scheduler", use_scheduler)
+    _add_to_parsers([add_parser, remove_parser], "action",
+                    {"choices": add_remove_actions, "help": "The action to perform."})
 
     return parser.parse_args()
 
 
-def run():
+def run(runtime_args: argparse.Namespace):
     app = QApplication(sys.argv)
     try:
         match host_os:
             case "Windows":
                 logger.debug("Running on Windows")
-                main_win(app)
+                main_win(app, runtime_args)
             case "Linux":
                 logger.debug("Running on Linux")
-                main_linux(app)
+                main_linux(app, runtime_args)
             case "Darwin":
                 logger.debug("Running on MacOS")
-                main_darwin()
+                main_darwin(app, runtime_args)
             case _:
                 logger.error(f"Unsupported OS: {host_os}")
                 exit(1)
@@ -106,11 +112,11 @@ def run():
         app.quit()
 
 
-def add_startup_task(force_console):
+def add_startup_task(runtime_args):
     match host_os:
         case "Windows":
             from brightify.windows.actions import elevated_add_startup_task
-            elevated_add_startup_task(force_console)
+            elevated_add_startup_task(runtime_args)
         case "Linux":
             raise NotImplementedError("Not implemented yet")
         case "Darwin":
@@ -134,11 +140,11 @@ def remove_startup_task():
             exit(1)
 
 
-def add_startup_icon(force_console):
+def add_startup_icon(runtime_args: argparse.Namespace):
     match host_os:
         case "Windows":
             from brightify.windows.actions import add_startup_icon
-            add_startup_icon(force_console)
+            add_startup_icon(runtime_args)
         case "Linux":
             raise NotImplementedError("Not implemented yet")
         case "Darwin":
@@ -162,11 +168,11 @@ def remove_startup_dir_link():
             exit(1)
 
 
-def add_menu_icon(force_console):
+def add_menu_icon(runtime_args: argparse.Namespace):
     match host_os:
         case "Windows":
             from brightify.windows.actions import add_menu_icon
-            add_menu_icon(force_console)
+            add_menu_icon(runtime_args)
         case "Linux":
             raise NotImplementedError("Not implemented yet")
         case "Darwin":
@@ -209,13 +215,14 @@ if __name__ == '__main__':
         if args.action in ["startup", "all"]:
             if args.use_scheduler:
                 logger.debug("Adding startup task")
-                add_startup_task(args.force_console)
+                add_startup_task(args)
             else:
                 logger.debug("Adding startup icon")
-                add_startup_icon(args.force_console)
+                add_startup_icon(args)
         if args.action in ["menu-icon", "all"]:
             logger.debug("Adding menu icon")
-            add_menu_icon(args.force_console)
+            add_menu_icon(args)
+
     elif args.command == "remove":
         if args.action in ["startup", "all"]:
             if args.use_scheduler:
@@ -228,4 +235,4 @@ if __name__ == '__main__':
             logger.debug("Removing menu icon")
             remove_menu_icon()
     elif args.command == "run":
-        run()
+        run(args)

@@ -19,6 +19,7 @@ There are several other arguments you can pass to the app, see `python -m bright
    - By default, the terminal will be hidden, but you can change this by passing the `--force-console` argument.
 - To add/remove only the menu icon run `python -m brightify add/remove menu-icon`.
    - You can again force the console to be shown by passing the `--force-console` argument.
+- To disable animations, pass the `--no-animations` argument to the `run` or `add` action.
 
 ## Set up the brightness sensor
 - Modify the [SensorComm](brightify/SensorComm.py) class to match your device and firmware

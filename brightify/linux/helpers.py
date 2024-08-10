@@ -12,7 +12,6 @@ if host_os != "Linux":
     raise RuntimeError("This code is designed to run on Linux only")
 
 
-
 def get_mode() -> Literal["light", "dark"]:
     logger.debug("Requested Theme from OS")
     # on Linux, there is no fixed way to determine the theme, this can only be the best effort
@@ -58,6 +57,7 @@ def get_mode() -> Literal["light", "dark"]:
             logger.error(f"Failed to get theme from XFCE config: {e}")
     return "dark"
 
-def get_theme() -> Theme:
+
+def get_theme(no_animations) -> Theme:
     logger.info("Using Theme from Linux, callback not yet implemented")
-    return Theme()
+    return Theme(has_animations=not no_animations)

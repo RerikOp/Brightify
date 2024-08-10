@@ -21,7 +21,7 @@ class Theme:
     font: str = dataclasses.field(default="Helvetica")
     font_size: int = dataclasses.field(default=13)
     mode: Literal["light", "dark"] = dataclasses.field(default="dark")
-    has_animations: bool = dataclasses.field(default=False)
+    has_animations: bool = dataclasses.field(default=True)
 
 
 class MonitorRow(QWidget):

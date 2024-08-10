@@ -1,3 +1,4 @@
+import argparse
 import logging
 from typing import Literal
 
@@ -60,6 +61,5 @@ def animation_enabled() -> bool:
     return animations == 1
 
 
-def get_theme() -> Theme:
-    return Theme(mode=get_mode(), accent_color=get_color())
-    #return Theme(mode=get_mode(), accent_color=get_color(), has_animations=animation_enabled())
+def get_theme(no_animations: bool) -> Theme:
+    return Theme(mode=get_mode(), accent_color=get_color(), has_animations=animation_enabled() and not no_animations)

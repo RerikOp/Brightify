@@ -1,3 +1,4 @@
+import argparse
 import ctypes
 import os
 import winshell
@@ -8,12 +9,12 @@ from brightify import app_name, icon_light, icon_dark
 from brightify.windows.helpers import get_mode
 
 
-def elevated_add_startup_task(force_console):
+def elevated_add_startup_task(runtime_args):
     from brightify.windows import add_startup_task
-
+    force_console = runtime_args.force_console
     args = ["--task-name", app_name,
             "--path", f"\"{exec_path(force_console)}\"",
-            "--args", exec_arg()]
+            "--args", run_call(runtime_args)]
 
     ctypes.windll.shell32.ShellExecuteW(None,  # hwnd
                                         "runas",  # operation
@@ -35,31 +36,32 @@ def elevated_remove_startup_task():
                                         1)  # show window
 
 
-def exec_path(force_console):
-    return sys.executable.replace("python.exe", "pythonw.exe") if not force_console else sys.executable
+def exec_path(runtime_args: argparse.Namespace):
+    return sys.executable.replace("python.exe", "pythonw.exe") if not runtime_args.force_console else sys.executable
 
 
-def exec_arg():
-    return "-m brightify run"
+def run_call(runtime_args: argparse.Namespace):
+    no_animations = " --no-animations" if runtime_args.no_animations else ""
+    return f"-m brightify run{no_animations}"
 
 
-def add_icon(force_console, directory):
+def add_icon(runtime_args: argparse.Namespace, directory):
     # create a shortcut in the directory folder
     Path(directory).mkdir(parents=True, exist_ok=True)
     shortcut_path = Path(directory) / f"{app_name}.lnk"
     with winshell.shortcut(str(shortcut_path)) as shortcut:
         shortcut: winshell.Shortcut
-        shortcut.path = exec_path(force_console)
-        shortcut.arguments = exec_arg()
+        shortcut.path = exec_path(runtime_args)
+        shortcut.arguments = run_call(runtime_args)
         shortcut.description = f"Startup link for {app_name}"
         icon_path = icon_light if get_mode() == "dark" else icon_dark
         if icon_path.exists():
             shortcut.icon_location = (str(icon_path), 0)
 
 
-def add_menu_icon(force_console):
+def add_menu_icon(runtime_args: argparse.Namespace):
     programs_folder = winshell.programs()
-    add_icon(force_console, programs_folder)
+    add_icon(runtime_args, programs_folder)
 
 
 def remove_menu_icon():
@@ -69,9 +71,9 @@ def remove_menu_icon():
         os.remove(shortcut_path)
 
 
-def add_startup_icon(force_console):
+def add_startup_icon(runtime_args: argparse.Namespace):
     startup_folder = winshell.startup()
-    add_icon(force_console, startup_folder)
+    add_icon(runtime_args, startup_folder)
 
 
 def remove_startup_folder():
