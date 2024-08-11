@@ -22,6 +22,11 @@ class Theme:
     font_size: int = dataclasses.field(default=13)
     mode: Literal["light", "dark"] = dataclasses.field(default="dark")
     has_animations: bool = dataclasses.field(default=True)
+    __icon_path: Path = dataclasses.field(default=icon_light, init=False, repr=False, compare=False)
+
+    @property
+    def icon_path(self):
+        return icon_light if self.mode == "dark" else icon_dark
 
 
 class MonitorRow(QWidget):
@@ -72,7 +77,6 @@ class MonitorRow(QWidget):
         type_label_text = f"[{value.get_type()}]"
         self.type_label.setText(type_label_text)
 
-
     @staticmethod
     def __slider_style(theme: Theme):
         return f"""
@@ -115,14 +119,7 @@ class UIConfig:
     # The maximum width of the label in the MonitorRow, or -1 if unbounded
     max_label_width: int = -1
 
-    # Icon
-    _icon_path: Path = dataclasses.field(default=icon_light)
-
     animation_duration: int = 100
-
-    @property
-    def icon_path(self):
-        return icon_light if self.theme.mode == "dark" else icon_dark
 
     @property
     def style_sheet(self):
@@ -144,6 +141,7 @@ class UIConfig:
                 padding: 5px;
             }}
         """
+
     def config_fade_animation(self, fa: QPropertyAnimation,
                               start_geometry: QtCore.QRect,
                               end_geometry: QtCore.QRect):

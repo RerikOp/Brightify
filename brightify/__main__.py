@@ -1,12 +1,12 @@
-import threading
 import logging
 import sys
 import argparse
 from pathlib import Path
 
+from PyQt6.QtCore import QThread, Qt
 from PyQt6.QtWidgets import QApplication
 
-from brightify import app_name, host_os, root_dir
+from brightify import app_name, host_os, root_dir, OSEvent
 from brightify.BaseApp import BaseApp
 from brightify.brightylog import configure_logging, start_logging
 
@@ -24,21 +24,36 @@ def excepthook(exc_type, exc_value, exc_tb):
 def main_win(app: QApplication, args: argparse.Namespace):
     import win32gui
     from brightify.windows.WindowsApp import WindowsApp
-    from brightify.windows.helpers import get_theme
-    base_app = BaseApp(lambda: get_theme(args.no_animations), os_managed=True)
-    WindowsApp(base_app)
-    threading.Thread(target=win32gui.PumpMessages, daemon=True).start()
-    base_app.show()
+    os_event = OSEvent()
+    base_app = BaseApp(os_event, args, window_type=Qt.WindowType.Tool)
+    win_app = WindowsApp(os_event)
+
+    class PumpMessagesThread(QThread):
+        def run(self):
+            logger.debug("Starting message pump")
+            while True:
+                win32gui.PumpWaitingMessages()
+
+    class MouseListenerThread(QThread):
+        def run(self):
+            while True:
+                win_app.handle_mouse_click_func()
+
+    pump_thread = PumpMessagesThread()
+    pump_thread.start()
+
+    mouse_thread = MouseListenerThread()
+    mouse_thread.start()
     ret_code = app.exec()
     logger.info(f"Exiting with code {ret_code}")
     exit(ret_code)
 
 
 def main_linux(app: QApplication, args: argparse.Namespace):
-    # from brightify.linux.LinuxApp import LinuxApp
-    from brightify.linux.helpers import get_theme
-    base_app = BaseApp(lambda: get_theme(args.no_animations), os_managed=True)
-    logger.critical("Linux not supported yet, this will most likely crash")
+    base_app = BaseApp(None, args)
+    logger.warning("Linux not tested yet")
+    # disable animations
+    base_app.ui_config.theme.has_animations = False
     base_app.redraw()
     base_app.change_state("show")
     ret_code = app.exec()
@@ -75,7 +90,7 @@ def parse_args() -> argparse.Namespace:
     add_parser.add_argument("--force-console", action="store_true", default=False,
                             help="Always show the console when starting the app via task / icon etc.")
     no_animation = {"action": "store_true", "default": False,
-                     "help": "Disable animations. If the OS does not support icons in the system tray, this will be ignored - it never has animations."}
+                    "help": "Disable animations. If the OS does not support icons in the system tray, this will be ignored - it never has animations."}
 
     _add_to_parsers([add_parser, run_parser], "--no-animations", no_animation)
 
@@ -210,6 +225,10 @@ if __name__ == '__main__':
             f.write(str(e) + "\n")
     sys.excepthook = excepthook
     args = parse_args()
+    if args.no_animations:
+        logger.debug("Animations disabled")
+        animations_disabled = True
+
     # Thanks to no fall-through in match-case, have fun reading this...
     if args.command == "add":
         if args.action in ["startup", "all"]:
