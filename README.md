@@ -5,6 +5,7 @@
     <div>
     <a href="https://www.codefactor.io/repository/github/rerikop/brightify"><img src="https://www.codefactor.io/repository/github/rerikop/brightify/badge" alt="CodeFactor" /></a>    
     </div>
+<br>
 </div>
 
 This app allows you to set the brightness of your monitor(s). It is essentially a wrapper around
