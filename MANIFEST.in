@@ -1,5 +1,3 @@
-include brightify/log_config.toml
 recursive-include brightify/res *
 include brightify/sensor_firmware/platformio.ini
 recursive-include brightify/sensor_firmware/src *
-recursive-include brightify/scripts *

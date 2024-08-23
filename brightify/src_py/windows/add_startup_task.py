@@ -15,8 +15,13 @@ def parse_args():
 
 
 if __name__ == '__main__':
-    install_log = Path(__file__).parent.parent / "logs" / "install.log"
-    Path(install_log).parent.mkdir(parents=True, exist_ok=True)
+    # This script should be standalone, so we need to hard-code the paths
+    windows_dir = Path(__file__).parent
+    src_py_dir = windows_dir.parent
+    brightify_dir = src_py_dir.parent
+    log_dir = brightify_dir / "logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    install_log = log_dir / "install.log"
 
     with open(install_log, 'a+') as f:
         try:

@@ -11,9 +11,8 @@ from brightify.src_py.windows.helpers import get_mode
 
 def elevated_add_startup_task(runtime_args):
     from brightify.src_py.windows import add_startup_task
-    force_console = runtime_args.force_console
     args = ["--task-name", app_name,
-            "--path", f"\"{exec_path(force_console)}\"",
+            "--path", f"\"{exec_path(runtime_args)}\"",
             "--args", run_call(runtime_args)]
 
     ctypes.windll.shell32.ShellExecuteW(None,  # hwnd
@@ -41,8 +40,9 @@ def exec_path(runtime_args: argparse.Namespace):
 
 
 def run_call(runtime_args: argparse.Namespace):
+    force_console = " --force-console" if runtime_args.force_console else ""
     no_animations = " --no-animations" if runtime_args.no_animations else ""
-    return f"-m brightify run{no_animations}"
+    return f"-m brightify run{force_console}{no_animations}"
 
 
 def add_icon(runtime_args: argparse.Namespace, directory):

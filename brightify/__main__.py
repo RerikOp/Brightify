@@ -21,11 +21,11 @@ def excepthook(exc_type, exc_value, exc_tb):
     logger.exception("An unhandled exception occurred", exc_info=(exc_type, exc_value, exc_tb))
 
 
-def main_win(app: QApplication, args: argparse.Namespace):
+def main_win(app: QApplication, runtime_args: argparse.Namespace):
     import win32gui
     from brightify.src_py.windows.WindowsApp import WindowsApp
     os_event = OSEvent()
-    base_app = BaseApp(os_event, args, window_type=Qt.WindowType.Tool)
+    BaseApp(os_event, runtime_args, window_type=Qt.WindowType.Tool)
     win_app = WindowsApp(os_event)
 
     class PumpMessagesThread(QThread):
@@ -45,7 +45,7 @@ def main_win(app: QApplication, args: argparse.Namespace):
     mouse_thread = MouseListenerThread()
     mouse_thread.start()
     ret_code = app.exec()
-    logger.info(f"Exiting with code {ret_code}")
+    logger.critical(f"Exiting with code {ret_code}")
     exit(ret_code)
 
 
@@ -69,8 +69,8 @@ def parse_args() -> argparse.Namespace:
     def _add_to_parsers(_subparsers, _arg_name, _d):
         for _s in _subparsers:
             _s.add_argument(_arg_name, **_d)
-
-    parser = argparse.ArgumentParser(description=app_name)
+    # Exit on error does not catch unknown arguments (https://github.com/python/cpython/issues/103498)
+    parser = argparse.ArgumentParser(description=app_name, exit_on_error=False)
     subparsers = parser.add_subparsers(dest="command", help="The command to run. Defaults to 'run' if not specified.")
     parser.set_defaults(command="run")
 
@@ -87,12 +87,13 @@ def parse_args() -> argparse.Namespace:
     add_remove_actions = ["startup", "menu-icon", "all"]
 
     # python -m brightify add {startup, menu-icon, all} [--force-console] [--use-scheduler] [--disable-animations]
-    add_parser.add_argument("--force-console", action="store_true", default=False,
-                            help="Always show the console when starting the app via task / icon etc.")
+    force_console = {"action": "store_true", "default": False, "help": "Always show the console when starting the app via task / icon etc."}
+
     no_animation = {"action": "store_true", "default": False,
                     "help": "Disable animations. If the OS does not support icons in the system tray, this will be ignored - it never has animations."}
 
     _add_to_parsers([add_parser, run_parser], "--no-animations", no_animation)
+    _add_to_parsers([add_parser, run_parser], "--force-console", force_console)
 
     # OSs have a scheduler (Linux has cron, Windows has task scheduler, etc.)
     use_scheduler = {"action": "store_true", "default": False,
@@ -103,7 +104,13 @@ def parse_args() -> argparse.Namespace:
     _add_to_parsers([add_parser, remove_parser], "action",
                     {"choices": add_remove_actions, "help": "The action to perform."})
 
-    return parser.parse_args()
+    try:
+        return parser.parse_args()
+    except SystemExit as err:
+        if err.code == 0:
+            exit(0)
+        logger.error(f"Argument parsing failed with code {err.code}. Arguments: {sys.argv}")
+        exit(1)
 
 
 def run(runtime_args: argparse.Namespace):
@@ -225,9 +232,6 @@ if __name__ == '__main__':
             f.write(str(e) + "\n")
     sys.excepthook = excepthook
     args = parse_args()
-    if args.no_animations:
-        logger.debug("Animations disabled")
-        animations_disabled = True
 
     # Thanks to no fall-through in match-case, have fun reading this...
     if args.command == "add":
