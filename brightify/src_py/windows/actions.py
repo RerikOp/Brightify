@@ -6,11 +6,11 @@ import sys
 from pathlib import Path
 
 from brightify import app_name, icon_light, icon_dark
-from brightify.windows.helpers import get_mode
+from brightify.src_py.windows.helpers import get_mode
 
 
 def elevated_add_startup_task(runtime_args):
-    from brightify.windows import add_startup_task
+    from brightify.src_py.windows import add_startup_task
     force_console = runtime_args.force_console
     args = ["--task-name", app_name,
             "--path", f"\"{exec_path(force_console)}\"",
@@ -25,7 +25,7 @@ def elevated_add_startup_task(runtime_args):
 
 
 def elevated_remove_startup_task():
-    from brightify.windows import remove_startup_task
+    from brightify.src_py.windows import remove_startup_task
     args = ["--task-name", app_name]
     # run the script as admin
     ctypes.windll.shell32.ShellExecuteW(None,  # hwnd

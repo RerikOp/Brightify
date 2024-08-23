@@ -9,7 +9,7 @@ from PyQt6.QtGui import QFont, QFontMetrics
 from PyQt6.QtWidgets import QWidget, QSlider, QCheckBox, QLabel, QHBoxLayout
 
 from brightify import icon_light, icon_dark
-from brightify.monitors.MonitorBase import MonitorBase
+from brightify.src_py.monitors.MonitorBase import MonitorBase
 
 
 @dataclasses.dataclass

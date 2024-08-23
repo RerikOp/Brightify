@@ -8,7 +8,7 @@ from logging import handlers
 import logging.config
 from pathlib import Path
 
-from brightify import root_dir
+from brightify import brightify_dir, res_dir, log_dir
 
 LOG_RECORD_BUILTIN_ATTRS = {
     "args",  # The tuple of arguments merged into msg to produce message, or a dict whose values are used for the merge.
@@ -115,7 +115,7 @@ def remove_queue_handler(config: dict):
     config["loggers"]["root"] = queue_handler
 
 
-def modify_log_config(config: dict, log_dir: Path):
+def modify_log_config(config: dict):
     # if python version is < 3.12, remove the queue handler and link everything to the root logger
     if sys.version_info < (3, 12):
         remove_queue_handler(config)
@@ -139,9 +139,8 @@ def start_logging():
 def configure_logging():
     import tomllib as toml
     # make sure logs dir exists
-    log_dir = root_dir / "logs"
     log_dir.mkdir(parents=True, exist_ok=True)
-    with open(root_dir / "log_config.toml", "rb") as f:
+    with open(res_dir / "log_config.toml", "rb") as f:
         config = toml.load(f)
-    modify_log_config(config, log_dir)
+    modify_log_config(config)
     logging.config.dictConfig(config)

@@ -1,7 +1,7 @@
 import time
 
 from PyQt6.QtWidgets import QApplication
-from brightify.windows.helpers import get_theme
+from brightify.src_py.windows.helpers import get_theme
 from brightify import host_os, app_name, OSEvent
 import logging
 import atexit

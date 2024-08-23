@@ -2,8 +2,8 @@ from typing import List, Optional
 import time
 import usb1
 
-from brightify.monitors.MonitorUSB import MonitorUSB
-from brightify.monitors.MonitorBase import logger
+from brightify.src_py.monitors.MonitorUSB import MonitorUSB
+from brightify.src_py.monitors.MonitorBase import logger
 
 
 class M27Q(MonitorUSB):

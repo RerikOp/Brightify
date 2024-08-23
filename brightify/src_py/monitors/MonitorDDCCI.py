@@ -1,9 +1,9 @@
-from typing import Optional, Dict, Tuple
+from typing import Optional
 
 import monitorcontrol
 
-from brightify.monitors.MonitorBase import MonitorBase
-from brightify.monitors.MonitorBase import logger
+from brightify.src_py.monitors.MonitorBase import MonitorBase
+from brightify.src_py.monitors.MonitorBase import logger
 
 
 class MonitorDDCCI(MonitorBase):

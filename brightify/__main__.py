@@ -6,9 +6,9 @@ from pathlib import Path
 from PyQt6.QtCore import QThread, Qt
 from PyQt6.QtWidgets import QApplication
 
-from brightify import app_name, host_os, root_dir, OSEvent
-from brightify.BaseApp import BaseApp
-from brightify.brightylog import configure_logging, start_logging
+from brightify import app_name, host_os, brightify_dir, OSEvent
+from brightify.src_py.BaseApp import BaseApp
+from brightify.src_py.brightylog import configure_logging, start_logging
 
 # use global logger
 logger = logging.getLogger(app_name)
@@ -23,7 +23,7 @@ def excepthook(exc_type, exc_value, exc_tb):
 
 def main_win(app: QApplication, args: argparse.Namespace):
     import win32gui
-    from brightify.windows.WindowsApp import WindowsApp
+    from brightify.src_py.windows.WindowsApp import WindowsApp
     os_event = OSEvent()
     base_app = BaseApp(os_event, args, window_type=Qt.WindowType.Tool)
     win_app = WindowsApp(os_event)
@@ -130,7 +130,7 @@ def run(runtime_args: argparse.Namespace):
 def add_startup_task(runtime_args):
     match host_os:
         case "Windows":
-            from brightify.windows.actions import elevated_add_startup_task
+            from brightify.src_py.windows.actions import elevated_add_startup_task
             elevated_add_startup_task(runtime_args)
         case "Linux":
             raise NotImplementedError("Not implemented yet")
@@ -144,7 +144,7 @@ def add_startup_task(runtime_args):
 def remove_startup_task():
     match host_os:
         case "Windows":
-            from brightify.windows.actions import elevated_remove_startup_task
+            from brightify.src_py.windows.actions import elevated_remove_startup_task
             elevated_remove_startup_task()
         case "Linux":
             raise NotImplementedError("Not implemented yet")
@@ -158,7 +158,7 @@ def remove_startup_task():
 def add_startup_icon(runtime_args: argparse.Namespace):
     match host_os:
         case "Windows":
-            from brightify.windows.actions import add_startup_icon
+            from brightify.src_py.windows.actions import add_startup_icon
             add_startup_icon(runtime_args)
         case "Linux":
             raise NotImplementedError("Not implemented yet")
@@ -172,7 +172,7 @@ def add_startup_icon(runtime_args: argparse.Namespace):
 def remove_startup_dir_link():
     match host_os:
         case "Windows":
-            from brightify.windows.actions import remove_startup_folder
+            from brightify.src_py.windows.actions import remove_startup_folder
             remove_startup_folder()
         case "Linux":
             raise NotImplementedError("Not implemented yet")
@@ -186,7 +186,7 @@ def remove_startup_dir_link():
 def add_menu_icon(runtime_args: argparse.Namespace):
     match host_os:
         case "Windows":
-            from brightify.windows.actions import add_menu_icon
+            from brightify.src_py.windows.actions import add_menu_icon
             add_menu_icon(runtime_args)
         case "Linux":
             raise NotImplementedError("Not implemented yet")
@@ -200,7 +200,7 @@ def add_menu_icon(runtime_args: argparse.Namespace):
 def remove_menu_icon():
     match host_os:
         case "Windows":
-            from brightify.windows.actions import remove_menu_icon
+            from brightify.src_py.windows.actions import remove_menu_icon
             remove_menu_icon()
         case "Linux":
             raise NotImplementedError("Not implemented yet")
@@ -213,7 +213,7 @@ def remove_menu_icon():
 
 if __name__ == '__main__':
     # for writing logs before logging is configured
-    install_log = root_dir / "logs" / "install.log"
+    install_log = brightify_dir / "logs" / "install.log"
     Path(install_log).parent.mkdir(parents=True, exist_ok=True)
     try:
         configure_logging()

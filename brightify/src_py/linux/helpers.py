@@ -3,7 +3,7 @@ import os
 from typing import Literal
 
 from brightify import host_os
-from brightify.ui_config import Theme
+from brightify.src_py.ui_config import Theme
 
 # Use OS specific logger
 logger = logging.getLogger("Linux")

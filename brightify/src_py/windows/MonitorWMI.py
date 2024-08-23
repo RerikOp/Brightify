@@ -1,5 +1,5 @@
-from brightify.monitors.MonitorBase import MonitorBase
-from brightify.monitors.MonitorBase import logger
+from brightify.src_py.monitors.MonitorBase import MonitorBase
+from brightify.src_py.monitors.MonitorBase import logger
 import wmi
 
 

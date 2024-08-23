@@ -7,11 +7,12 @@ app_name: str = str(__package__).capitalize()
 # The host operating system
 host_os: Literal["Windows", "Darwin", "Linux"] | str = platform.system()
 
-# The root directory of the project (static)
-root_dir: Path = Path(__file__).parent
+# The root directory of the pip project (brightify)
+brightify_dir: Path = Path(__file__).parent
 
-# The res directory
-res_dir: Path = root_dir / "res"
+res_dir: Path = brightify_dir / "res"
+
+log_dir: Path = brightify_dir / "logs"
 
 # The icon paths
 icon_light: Path = res_dir / "icon_light.ico"

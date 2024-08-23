@@ -1,4 +1,3 @@
-import logging
 import threading
 import time
 from abc import abstractmethod
@@ -7,8 +6,8 @@ from typing import Optional
 import usb1
 import atexit
 
-from brightify.monitors.MonitorBase import MonitorBase
-from brightify.monitors.MonitorBase import logger
+from brightify.src_py.monitors.MonitorBase import MonitorBase
+from brightify.src_py.monitors.MonitorBase import logger
 
 
 class MonitorUSB(MonitorBase):

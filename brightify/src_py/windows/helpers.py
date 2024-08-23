@@ -2,7 +2,7 @@ import logging
 from typing import Literal
 
 from brightify import host_os
-from brightify.ui_config import Theme
+from brightify.src_py.ui_config import Theme
 
 if host_os != "Windows":
     raise RuntimeError("This code is designed to run on Windows only")

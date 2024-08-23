@@ -1,11 +1,13 @@
 from typing import List, Type, Tuple
 from pathlib import Path
 
+from monitorcontrol import VCPError
+
 from brightify import host_os
-from brightify.monitors.MonitorBase import MonitorBase
-from brightify.monitors.MonitorDDCCI import MonitorDDCCI
-from brightify.monitors.MonitorUSB import MonitorUSB
-from brightify.monitors.MonitorBase import logger
+from brightify.src_py.monitors.MonitorBase import MonitorBase
+from brightify.src_py.monitors.MonitorDDCCI import MonitorDDCCI
+from brightify.src_py.monitors.MonitorUSB import MonitorUSB
+from brightify.src_py.monitors.MonitorBase import logger
 
 
 def _supported_usb_impls() -> List[Type[MonitorUSB]]:
@@ -57,7 +59,12 @@ def _ddcci_monitors() -> List[MonitorDDCCI]:
     monitors = monitorcontrol.get_monitors()
     impls = []
     for monitor in monitors:
-        m_impl = MonitorDDCCI(monitor)
+        try:
+            m_impl = MonitorDDCCI(monitor)
+        except VCPError as e:
+            logger.error(f"Failed to connect to DDCCI monitor: {e}")
+            continue
+
         is_working, name_found = False, False
         for _ in range(m_impl.max_tries):
             if not is_working:
@@ -85,7 +92,7 @@ def _internal_monitors() -> List[MonitorBase]:
     :return: a list of all MonitorBase implementations
     """
     if host_os == "Windows":
-        from brightify.windows.MonitorWMI import WMIMonitor
+        from brightify.src_py.windows.MonitorWMI import WMIMonitor
         if WMIMonitor.has_wmi_monitor():
             return [WMIMonitor()]
     return []

@@ -8,12 +8,12 @@ from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QApplication, QPushButton
 
 from brightify import app_name, OSEvent
-from brightify.SensorComm import SensorComm
-from brightify.monitors.finder import get_supported_monitors
-from brightify.ui_config import MonitorRow
-from brightify.ui_config import UIConfig, Theme
-from brightify.monitors.MonitorBase import MonitorBase
-from brightify.monitors.MonitorDDCCI import MonitorDDCCI
+from brightify.src_py.SensorComm import SensorComm
+from brightify.src_py.monitors.finder import get_supported_monitors
+from brightify.src_py.ui_config import MonitorRow
+from brightify.src_py.ui_config import UIConfig
+from brightify.src_py.monitors.MonitorBase import MonitorBase
+from brightify.src_py.monitors.MonitorDDCCI import MonitorDDCCI
 
 # use global logger
 logger = logging.getLogger(app_name)
