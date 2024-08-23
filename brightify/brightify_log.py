@@ -6,9 +6,8 @@ import logging
 import sys
 from logging import handlers
 import logging.config
-from pathlib import Path
 
-from brightify import brightify_dir, res_dir, log_dir
+from brightify import res_dir, log_dir
 
 LOG_RECORD_BUILTIN_ATTRS = {
     "args",  # The tuple of arguments merged into msg to produce message, or a dict whose values are used for the merge.
@@ -39,7 +38,7 @@ LOG_RECORD_BUILTIN_ATTRS = {
 }
 
 
-class BrightyQueueHandler(handlers.QueueHandler):
+class BrightifyLogQueueHandler(handlers.QueueHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         formatter = logging.Formatter()
@@ -59,7 +58,7 @@ class BrightyQueueHandler(handlers.QueueHandler):
         return record
 
 
-class Brightylog(logging.Formatter):
+class BrightifyLog(logging.Formatter):
     def __init__(self, *, fmt_keys: dict[str, str] | None = None):
         super().__init__()
         self.fmt_keys = fmt_keys if fmt_keys is not None else {}

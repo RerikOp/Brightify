@@ -8,7 +8,7 @@ from PyQt6.QtWidgets import QApplication
 
 from brightify import app_name, host_os, brightify_dir, OSEvent
 from brightify.src_py.BaseApp import BaseApp
-from brightify.src_py.brightylog import configure_logging, start_logging
+from brightify.brightify_log import configure_logging, start_logging
 
 # use global logger
 logger = logging.getLogger(app_name)

@@ -2,16 +2,16 @@ version = 1
 disable_existing_loggers = false
 
 [filters.warning_and_above]
-"()" = "brightify.src_py.brightylog.WarningAndAbove"
+"()" = "brightify.brightify_log.WarningAndAbove"
 
 [filters.info_and_below]
-"()" = "brightify.src_py.brightylog.InfoAndBelow"
+"()" = "brightify.brightify_log.InfoAndBelow"
 
 [formatters.console]
 format = "[%(levelname)s]: %(message)s [%(name)s @ %(asctime)s]"
 
 [formatters.json]
-"()" = "brightify.src_py.brightylog.Brightylog"
+"()" = "brightify.brightify_log.BrightifyLog"
 
 [formatters.json.fmt_keys]
 level = "levelname"
@@ -46,7 +46,7 @@ backupCount = 5
 
 
 [handlers.queue_handler]
-class = "brightify.src_py.brightylog.BrightyQueueHandler"
+class = "brightify.brightify_log.BrightifyLogQueueHandler"
 handlers = ["jsonfile", "stdout", "stderr"]
 respect_handler_level = true
 
