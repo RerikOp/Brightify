@@ -1,12 +1,7 @@
-.venv
+.venv*
 __pycache__
 .idea
 build
 *.egg-info
 
 brightify/logs
-
-# all non .py files in brightify/scripts
-brightify/scripts/windows/*.bat
-brightify/scripts/windows/*log
-brightify/scripts/windows/*vbs
