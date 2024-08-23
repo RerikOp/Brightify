@@ -1,4 +1,5 @@
 import argparse
+import os
 import subprocess
 import ctypes
 from pathlib import Path
@@ -31,6 +32,13 @@ if __name__ == '__main__':
             s = "This script must be run as admin"
             f.write(s + "\n")
             raise PermissionError(s)
-        subprocess.run(['schtasks', '/Delete',
+
+        schtasks_path = Path(os.getenv('SYSTEMROOT', 'C:\\Windows')) / 'System32' / 'schtasks.exe'
+        if not schtasks_path.exists():
+            s = "schtasks.exe not found"
+            f.write(s + "\n")
+            raise FileNotFoundError
+
+        subprocess.run([schtasks_path, '/Delete',
                         '/TN', args.task_name,
                         '/F'], check=True, stdout=f, stderr=f)

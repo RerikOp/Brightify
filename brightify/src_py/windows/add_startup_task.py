@@ -44,12 +44,16 @@ if __name__ == '__main__':
         tn = args.task_name
         tr = args.path + " " + " ".join(args.args)
 
-        # create the task
-        subprocess.run(
-            ['schtasks', '/Create',
-             '/SC', 'ONSTART',
-             '/TN', tn,
-             '/TR', tr,
-             '/RU', ru,
-             '/F'],
-            check=True, stdout=f, stderr=f)
+        schtasks_path = Path(os.getenv('SYSTEMROOT', 'C:\\Windows')) / 'System32' / 'schtasks.exe'
+        if not schtasks_path.exists():
+            s = "schtasks.exe not found"
+            f.write(s + "\n")
+            raise FileNotFoundError
+
+        subprocess.run([schtasks_path, '/Create',
+                        '/SC', 'ONSTART',
+                        '/TN', tn,
+                        '/TR', tr,
+                        '/RU', ru,
+                        '/F'],
+                       check=True, stdout=f, stderr=f)
