@@ -29,4 +29,5 @@ dependencies = [
     'pywin32; platform_system == "Windows"',
     'winshell; platform_system == "Windows"',
     'wmi; platform_system == "Windows"',
+    'pyudev; platform_system == "Linux"',
 ]

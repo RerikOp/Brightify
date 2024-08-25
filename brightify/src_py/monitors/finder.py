@@ -1,13 +1,12 @@
 from typing import List, Type, Tuple
 from pathlib import Path
 
-from monitorcontrol import VCPError
-
 from brightify import host_os
 from brightify.src_py.monitors.MonitorBase import MonitorBase
 from brightify.src_py.monitors.MonitorDDCCI import MonitorDDCCI
 from brightify.src_py.monitors.MonitorUSB import MonitorUSB
 from brightify.src_py.monitors.MonitorBase import logger
+from brightify.src_py.monitors.vpc import VCPError
 
 
 def _supported_usb_impls() -> List[Type[MonitorUSB]]:
@@ -55,12 +54,19 @@ def _ddcci_monitors() -> List[MonitorDDCCI]:
     As DDC/CI is not always reliable, we try to connect multiple times.
     :return: a list of all MonitorDDCCI implementations
     """
-    import monitorcontrol
-    monitors = monitorcontrol.get_monitors()
+    if host_os == "Windows":
+        from brightify.src_py.windows.vcp_windows import get_vcps
+        vcps = get_vcps()
+    elif host_os == "Linux":
+        from brightify.src_py.linux.vcp_linux import get_vcps
+        vcps = get_vcps()
+    else:
+        return []
+
     impls = []
-    for monitor in monitors:
+    for vcp in vcps:
         try:
-            m_impl = MonitorDDCCI(monitor)
+            m_impl = MonitorDDCCI(vcp)
         except VCPError as e:
             logger.error(f"Failed to connect to DDCCI monitor: {e}")
             continue
