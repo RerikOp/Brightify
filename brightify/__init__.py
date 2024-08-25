@@ -37,11 +37,10 @@ def parse_args() -> argparse.Namespace | None:
     # Exit on error does not catch unknown arguments (https://github.com/python/cpython/issues/103498)
     parser = argparse.ArgumentParser(description=app_name, exit_on_error=False)
     subparsers = parser.add_subparsers(dest="command", help="The command to run. Defaults to 'run' if not specified.")
-    parser.set_defaults(command="run")
 
     # python -m brightify run
     run_parser = subparsers.add_parser("run",
-                                       help="Runs Brightify from console. This is the default command if no other is specified.")
+                                       help="Runs Brightify from console.")
     # python -m brightify add
     add_parser = subparsers.add_parser("add", help="Add Brightify to the system.")
 

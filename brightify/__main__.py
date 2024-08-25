@@ -213,3 +213,9 @@ if __name__ == '__main__':
         else:
             logger.info("This will in the future launch the C++ backend, which will use less power and be more reliable")
             launch_cpp_backend(args)
+    elif args.command is None:
+        logger.info("No command specified, if you want to run Brightify, use 'run' as command. For more information, use --help")
+        exit(0)
+    else:
+        logger.error(f"Unknown command: {args.command}")
+        exit(1)
