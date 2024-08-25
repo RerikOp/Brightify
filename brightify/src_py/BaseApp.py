@@ -38,15 +38,12 @@ class BaseApp(QMainWindow):
         self.central_widget.setLayout(self.rows)
         self.setCentralWidget(self.central_widget)
 
-        # On a state change (show/hide), prevent multiple clicks by waiting for
-        self.__click_lock: QTimer = QTimer(self)
-        self.__click_lock.setSingleShot(True)
         self.__os_event = os_event
 
         self.__bottom_right: QPoint | None = None
         self.__ui_config: UIConfig = UIConfig()
-        self.__sensor_comm = SensorComm()
 
+        self.__sensor_comm = SensorComm()
         self.__sensor_thread = QThread()
         self.__sensor_comm.moveToThread(self.__sensor_thread)
         self.__sensor_timer = QTimer(self)
@@ -61,12 +58,10 @@ class BaseApp(QMainWindow):
 
         # Animations:
         self.fade_up_animation = QPropertyAnimation(self, b"geometry")
-        self.fade_up_animation.finished.connect(self.__click_lock.stop)
         self.fade_up_animation.finished.connect(self.activateWindow)
         self.fade_up_animation.finished.connect(self.setFocus)
 
         self.fade_down_animation = QPropertyAnimation(self, b"geometry")
-        self.fade_down_animation.finished.connect(self.__click_lock.stop)
         self.fade_down_animation.finished.connect(self.clearFocus)
         self.fade_down_animation.finished.connect(self.hide)
 
@@ -93,12 +88,13 @@ class BaseApp(QMainWindow):
                      QPoint(top_left.x() + min_width, top_left.y() + 2 * self.height()))
         return down
 
-    def handle_os_update(self):
-        def _coord_to_qpoint(coord: Tuple[int, int]) -> QPoint:
-            x, y = coord
-            ratio = QApplication.primaryScreen().devicePixelRatio()
-            return QPoint(int(x // ratio), int(y // ratio))
+    @staticmethod
+    def _coord_to_qpoint(coord: Tuple[int, int]) -> QPoint:
+        x, y = coord
+        ratio = QApplication.primaryScreen().devicePixelRatio()
+        return QPoint(int(x // ratio), int(y // ratio))
 
+    def handle_os_update(self):
         if self.__os_event.theme is not None:
             theme = self.__os_event.theme
             if self.__args.no_animations:
@@ -112,12 +108,13 @@ class BaseApp(QMainWindow):
         if self.__os_event.bottom_right is not None:
             x, y = self.__os_event.bottom_right
             self.__os_event.bottom_right = None
-            self.__bottom_right = _coord_to_qpoint((x, y))
+            self.__bottom_right = self._coord_to_qpoint((x, y))
         if self.__os_event.force_redraw:
             self.__os_event.force_redraw = False
+            self.deactivate()
             self.redraw()
         if self.__os_event.last_click is not None:
-            p = _coord_to_qpoint(self.__os_event.last_click)
+            p = self._coord_to_qpoint(self.__os_event.last_click)
             self.__os_event.last_click = None
             if self.__os_event.click_on_icon:
                 logger.debug("Click on icon")
@@ -218,7 +215,6 @@ class BaseApp(QMainWindow):
         def run_and_disconnect():
             finished()
             animation.finished.disconnect(run_and_disconnect)
-
         animation.finished.connect(run_and_disconnect)
 
     def __add_reload_button(self):
@@ -302,12 +298,6 @@ class BaseApp(QMainWindow):
         self.hide()
 
     def change_state(self, new_state: Literal["show", "hide", "invert"] = "invert"):
-        # prevent multiple animations
-        if self.__click_lock.isActive():
-            return
-
-        self.__click_lock.start(self.ui_config.animation_duration)
-
         if new_state == "invert":
             new_state = "show" if self.isHidden() else "hide"
         old_state = "show" if self.isVisible() else "hide"
@@ -315,16 +305,24 @@ class BaseApp(QMainWindow):
         if old_state == new_state:
             return
 
-        logger.debug(f"Changing state to {new_state}")
-
         # only show or hide the window if animations are disabled
         if not self.ui_config.theme.has_animations:
+            logger.debug(f"Setting state to {new_state} (no animations)")
             self.move(self.top_left)
             if new_state == "hide":
                 self.deactivate()
             elif new_state == "show":
                 self.activate()
             return
+
+        # if any animation is running, return:
+        if (self.fade_up_animation.state() == QPropertyAnimation.State.Running or
+                self.fade_down_animation.state() == QPropertyAnimation.State.Running):
+            logger.debug("Animation is already running")
+            return
+
+        logger.debug(f"Setting state to {new_state} (with animations)")
+
         up = self.up_geometry()
         down = self.down_geometry()
         self.show()
@@ -336,5 +334,3 @@ class BaseApp(QMainWindow):
             logger.debug(f"Hiding window")
             self.ui_config.config_fade_animation(self.fade_down_animation, up, down)
             self.fade_down_animation.start()
-
-        self.updateGeometry()

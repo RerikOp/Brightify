@@ -23,8 +23,8 @@ class MonitorDDCCI(MonitorBase):
             try:
                 vcp_cap = self.monitor.get_vcp_capabilities()
                 # sometimes the dict is broken
-                if vcp_cap.get('model', None) is not None:
-                    self.vcp_cap, self.__name, self.is_unknown = vcp_cap, vcp_cap['model'], False
+                if (name := vcp_cap.get('model', None)) is not None:
+                    self.vcp_cap, self.__name, self.is_unknown = vcp_cap, name, False
             except monitorcontrol.vcp.vcp_abc.VCPError:
                 pass
 
