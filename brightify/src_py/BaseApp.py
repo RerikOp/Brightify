@@ -94,6 +94,8 @@ class BaseApp(QMainWindow):
         return QPoint(int(x // ratio), int(y // ratio))
 
     def handle_os_update(self):
+        if self.__os_event.locked:
+            return
         if self.__os_event.theme is not None:
             theme = self.__os_event.theme
             if self.__args.no_animations:
@@ -206,6 +208,7 @@ class BaseApp(QMainWindow):
         def run_and_disconnect():
             finished()
             animation.finished.disconnect(run_and_disconnect)
+
         animation.finished.connect(run_and_disconnect)
 
     def __add_reload_button(self):

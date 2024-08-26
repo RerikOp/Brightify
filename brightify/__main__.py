@@ -1,6 +1,8 @@
 import logging
 import sys
 import argparse
+import threading
+import time
 from pathlib import Path
 from brightify import app_name, host_os, brightify_dir, OSEvent, parse_args
 from brightify.src_py.BaseApp import BaseApp
@@ -20,28 +22,31 @@ def excepthook(exc_type, exc_value, exc_tb):
 def main_win(app, runtime_args: argparse.Namespace):
     from PyQt6.QtCore import QThread, Qt
     import win32gui
+    import ctypes
     from brightify.src_py.windows.WindowsApp import WindowsApp
     os_event = OSEvent()
     BaseApp(os_event, runtime_args, window_type=Qt.WindowType.Tool)
     win_app = WindowsApp(os_event)
 
-    class PumpMessagesThread(QThread):
+    class WindowsThread(QThread):
         def run(self):
-            logger.debug("Starting message pump")
-            while True:
+            # It appears that LBUTTONDOWN is only received after LBUTTONUP. Thus, we need to poll the mouse state
+            already_handled = False
+            while self.isRunning():
+                l_button_down = ctypes.windll.user32.GetAsyncKeyState(win_app.primary_click) & 0x8000 != 0
+                if l_button_down and not already_handled:  # corresponds to LBUTTONDOWN
+                    already_handled = True
+                elif not l_button_down and already_handled:  # corresponds to LBUTTONUP
+                    os_event.locked = True  # make sure that the app does not interrupt
+                    already_handled = False
                 win32gui.PumpWaitingMessages()
+                self.msleep(10)
+                os_event.locked = False
 
-    class MouseListenerThread(QThread):
-        def run(self):
-            while True:
-                win_app.handle_mouse_click_func()
-
-    pump_thread = PumpMessagesThread()
-    pump_thread.start()
-
-    mouse_thread = MouseListenerThread()
-    mouse_thread.start()
+    windows_thread = WindowsThread()
+    windows_thread.start()
     ret_code = app.exec()
+    windows_thread.quit()
     logger.critical(f"Exiting with code {ret_code}")
     exit(ret_code)
 

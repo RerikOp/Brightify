@@ -74,10 +74,12 @@ class WindowsApp:
             1025: lambda: win32gui.DestroyWindow(self.hwnd)
         }
         self.os_event = os_event
+        self.primary_click = win32con.VK_LBUTTON
+
         self._on_restart()
         atexit.register(self.exit)
 
-    def handle_mouse_click_func(self):
+    """def handle_mouse_click_func(self):
         # It appears that LBUTTONDOWN is only received after LBUTTONUP. Thus, we need to poll the mouse state
         already_handled = False
         while True:
@@ -89,7 +91,7 @@ class WindowsApp:
                 # sleep really short to allow for self._on_icon_notify to be called
                 time.sleep(0.01)
                 self.os_event.last_click = win32gui.GetCursorPos()
-            time.sleep(0.01)
+            time.sleep(0.01)"""
 
     def _window_class(self):
         # Configuration for the window
@@ -132,6 +134,7 @@ class WindowsApp:
     def _on_icon_notify(self, hwnd=None, msg=None, wparam=None, lparam=None):
         if lparam == win32con.WM_LBUTTONUP:
             self.os_event.click_on_icon = True
+            self.os_event.last_click = win32gui.GetCursorPos()
         elif lparam == win32con.WM_RBUTTONUP:
             x, y = win32gui.GetCursorPos()
             menu = win32gui.CreatePopupMenu()
@@ -156,7 +159,6 @@ class WindowsApp:
 
         flags = win32gui.NIF_ICON | win32gui.NIF_MESSAGE | win32gui.NIF_TIP
         nid = (self.hwnd, 0, flags, self.WM_ICON, hicon, app_name)
-
         try:
             win32gui.Shell_NotifyIcon(win32gui.NIM_ADD, nid)
         except win32gui.error:

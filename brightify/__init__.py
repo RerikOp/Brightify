@@ -22,6 +22,7 @@ icon_dark: Path = res_dir / "icon_dark.ico"
 
 # Events that can be emitted by the operating system
 class OSEvent:
+    locked = False
     theme = None  # if not None, the theme has changed
     force_redraw: bool = False  # force the app to redraw
     bottom_right: Optional[Tuple[int, int]] = None  # the bottom right corner of the app
