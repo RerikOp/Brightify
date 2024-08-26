@@ -1,11 +1,9 @@
 import logging
 import sys
 import argparse
-import threading
-import time
 from pathlib import Path
 from brightify import app_name, host_os, brightify_dir, OSEvent, parse_args
-from brightify.src_py.BaseApp import BaseApp
+from brightify.src_py.BrightifyApp import BrightifyApp
 from brightify.brightify_log import configure_logging, start_logging
 
 # use global logger
@@ -25,7 +23,7 @@ def main_win(app, runtime_args: argparse.Namespace):
     import ctypes
     from brightify.src_py.windows.WindowsApp import WindowsApp
     os_event = OSEvent()
-    BaseApp(os_event, runtime_args, window_type=Qt.WindowType.Tool)
+    BrightifyApp(os_event, runtime_args, window_type=Qt.WindowType.Tool)
     win_app = WindowsApp(os_event)
 
     class WindowsThread(QThread):
@@ -39,6 +37,7 @@ def main_win(app, runtime_args: argparse.Namespace):
                 elif not l_button_down and already_handled:  # corresponds to LBUTTONUP
                     os_event.locked = True  # make sure that the app does not interrupt
                     already_handled = False
+                    os_event.last_click = win32gui.GetCursorPos()
                 win32gui.PumpWaitingMessages()
                 self.msleep(10)
                 os_event.locked = False
@@ -47,12 +46,12 @@ def main_win(app, runtime_args: argparse.Namespace):
     windows_thread.start()
     ret_code = app.exec()
     windows_thread.quit()
-    logger.critical(f"Exiting with code {ret_code}")
+    logger.info(f"Exiting with code {ret_code}")
     exit(ret_code)
 
 
 def main_linux(app, runtime_args: argparse.Namespace):
-    base_app = BaseApp(None, runtime_args)
+    base_app = BrightifyApp(None, runtime_args)
     logger.warning("Linux not tested yet")
     # disable animations
     base_app.ui_config.theme.has_animations = False
@@ -86,10 +85,6 @@ def launch_python_backend(runtime_args: argparse.Namespace):
     except KeyboardInterrupt:
         logger.info("User interrupted the program, exiting...")
         app.quit()
-
-
-def launch_cpp_backend(runtime_args: argparse.Namespace):
-    return
 
 
 def add_startup_task(runtime_args):
@@ -170,14 +165,14 @@ def remove_menu_icon():
         exit(1)
 
 
-if __name__ == '__main__':
+def main():
     # for writing logs before logging is configured
     install_log = brightify_dir / "logs" / "install.log"
     Path(install_log).parent.mkdir(parents=True, exist_ok=True)
     try:
         configure_logging()
         start_logging()
-        #logger.critical("Brightify started")
+        logger.info("Brightify started")
     except Exception as e:
         with open(install_log, "a+") as f:
             f.write("Failed to configure logging\n")
@@ -187,10 +182,10 @@ if __name__ == '__main__':
     try:
         args = parse_args()
     except SystemExit as e:
-        logger.error(f"Argument parsing failed. Most likely due to unknown arguments. Arguments: {sys.argv}")
+        logger.warning(f"Argument parsing failed. Most likely due to unknown arguments. Arguments: {sys.argv}")
         exit(1)
     except argparse.ArgumentError as e:
-        logger.info(f"Argument parsing failed: {e}")
+        logger.warning(f"Argument parsing failed at {e}")
         exit(1)
 
     # Thanks to no fall-through in match-case, have fun reading this...
@@ -218,16 +213,19 @@ if __name__ == '__main__':
             remove_menu_icon()
     elif args.command == "run":
         if args.backend == "python":
-            logger.info("Launching Python backend")
             launch_python_backend(args)
         else:
             logger.info(
                 "This will in the future launch the C++ backend, which will use less power and be more reliable")
-            launch_cpp_backend(args)
+            exit(0)
     elif args.command is None:
-        logger.info(
+        logger.warning(
             "No command specified, if you want to run Brightify, use 'run' as command. For more information, use --help")
         exit(0)
     else:
         logger.error(f"Unknown command: {args.command}")
         exit(1)
+
+
+if __name__ == '__main__':
+    main()

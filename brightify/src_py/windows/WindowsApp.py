@@ -1,10 +1,9 @@
-import time
-
 from PyQt6.QtWidgets import QApplication
 from brightify.src_py.windows.helpers import get_theme
 from brightify import host_os, app_name, OSEvent
 import logging
 import atexit
+import ctypes
 
 if host_os != "Windows":
     raise RuntimeError("This code is designed to run on Windows only")
@@ -17,8 +16,6 @@ except ImportError as e:
 
 # Use OS specific logger
 logger = logging.getLogger("Windows")
-
-import ctypes
 
 
 class WindowsApp:
@@ -78,20 +75,6 @@ class WindowsApp:
 
         self._on_restart()
         atexit.register(self.exit)
-
-    """def handle_mouse_click_func(self):
-        # It appears that LBUTTONDOWN is only received after LBUTTONUP. Thus, we need to poll the mouse state
-        already_handled = False
-        while True:
-            l_button_down = ctypes.windll.user32.GetAsyncKeyState(self.primary_click) & 0x8000 != 0
-            if l_button_down and not already_handled:  # corresponds to LBUTTONDOWN
-                already_handled = True
-            elif not l_button_down and already_handled:  # corresponds to LBUTTONUP
-                already_handled = False
-                # sleep really short to allow for self._on_icon_notify to be called
-                time.sleep(0.01)
-                self.os_event.last_click = win32gui.GetCursorPos()
-            time.sleep(0.01)"""
 
     def _window_class(self):
         # Configuration for the window

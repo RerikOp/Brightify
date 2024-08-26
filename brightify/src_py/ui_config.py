@@ -1,12 +1,12 @@
 import dataclasses
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Literal, Optional, Callable, Any, Tuple
 
 from PyQt6 import QtCore
-from PyQt6.QtCore import QPropertyAnimation, QEasingCurve
+from PyQt6.QtCore import QPropertyAnimation, QEasingCurve, QPoint
 from PyQt6.QtGui import QFont, QFontMetrics
 
-from PyQt6.QtWidgets import QWidget, QSlider, QCheckBox, QLabel, QHBoxLayout
+from PyQt6.QtWidgets import QWidget, QSlider, QCheckBox, QLabel, QHBoxLayout, QApplication
 
 from brightify import icon_light, icon_dark
 from brightify.src_py.monitors.MonitorBase import MonitorBase
@@ -149,3 +149,30 @@ class UIConfig:
         fa.setEasingCurve(QEasingCurve.Type.Linear)
         fa.setStartValue(start_geometry)
         fa.setEndValue(end_geometry)
+
+
+# Helper functions
+def run_once(animation: QPropertyAnimation, finished: Callable[[], Any]) -> None:
+    """
+    Run the animation once and disconnect the signal when done.
+    :param animation: The animation to run
+    :param finished: The function to call when the animation is finished
+    :return: None
+    """
+
+    def run_and_disconnect():
+        finished()
+        animation.finished.disconnect(run_and_disconnect)
+
+    animation.finished.connect(run_and_disconnect)
+
+
+def coord_to_qpoint(coord: Tuple[int, int]) -> QPoint:
+    """
+    Convert a coordinate to a QPoint with the correct scaling. This uses the primary screen's device pixel ratio.
+    :param coord: The coordinate to convert
+    :return: The QPoint with the correct scaling
+    """
+    x, y = coord
+    ratio = QApplication.primaryScreen().devicePixelRatio()
+    return QPoint(int(x // ratio), int(y // ratio))

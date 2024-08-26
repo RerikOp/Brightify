@@ -6,32 +6,32 @@ from brightify.src_py.monitors.vpc import VCP, VCPError, VCPCode, VCPCodeDefinit
 
 class MonitorDDCCI(MonitorBase):
     def __init__(self, vcp: VCP):
-        # monitorcontrol.Monitor always uses 0-100 as brightness range
+        """
+        Initializes the MonitorDDCCI instance.
+        :param vcp: VCP instance for virtual control panel backend.
+        """
         super().__init__(0, 100)
-        # The virtual control panel backend
         self.vcp = vcp
-        # The luminance code
         self.luminance_code = VCPCodeDefinition.image_luminance
-        # Getting the capabilities can fail, so we try multiple times
         self.max_tries = 10
-        # Store the max value of the codes
         self.code_max = {}
 
-        # Check if VCP provides a name
         if (name := self.vcp.name) is not None:
             self.__name = name
         else:
             self.__name = self.default_name()
-            # Try to get the name from the VCP capabilities
             self.update_cap()
 
-    def is_unknown(self):
+    def is_unknown(self) -> bool:
+        """
+        Checks if the monitor name is unknown.
+        :return: True if unknown, False otherwise.
+        """
         return self.__name == self.default_name()
 
     def _get_code_maximum(self, code: VCPCode) -> int:
         """
         Gets the maximum values for a given code, and caches it in the class dictionary if not already found.
-
         :param code: Feature code definition class.
         :returns: Maximum value for the given code.
         """
@@ -40,14 +40,17 @@ class MonitorDDCCI(MonitorBase):
         if code.value in self.code_max:
             return self.code_max[code.value]
         else:
-            _, maximum = self.vcp.get_vcp_feature(code.value)
-            self.code_max[code.value] = maximum
-            return maximum
+            try:
+                _, maximum = self.vcp.get_vcp_feature(code.value)
+                self.code_max[code.value] = maximum
+                return maximum
+            except VCPError as e:
+                logger.error(f"Error getting VCP feature: {e}")
+                return 0
 
     def _set_vcp_feature(self, code: VCPCode, value: int):
         """
-        Sets the value of a feature on the virtual control panel. This function must be run within the context manager
-
+        Sets the value of a feature on the virtual control panel. This function must be run within the context manager.
         :param code: Feature code.
         :param value: Feature value.
         """
@@ -61,13 +64,12 @@ class MonitorDDCCI(MonitorBase):
                 return
         try:
             self.vcp.set_vcp_feature(code.value, value)
-        except VCPError:
-            pass
+        except VCPError as e:
+            logger.error(f"Error setting VCP feature: {e}")
 
     def _get_vcp_feature(self, code: VCPCode) -> Optional[int]:
         """
         Gets the value of a feature from the virtual control panel without raising exceptions.
-
         :param code: Feature code.
         :returns: Current feature value.
         """
@@ -76,37 +78,59 @@ class MonitorDDCCI(MonitorBase):
             return None
         try:
             current, maximum = self.vcp.get_vcp_feature(code.value)
-            self.code_max[code] = maximum
+            self.code_max[code.value] = maximum
             return current
-        except VCPError:
+        except VCPError as e:
+            logger.error(f"Error getting VCP feature: {e}")
             return None
 
     def update_cap(self, force: bool = False):
+        """
+        Updates the monitor capabilities.
+        :param force: Force update if True.
+        """
         num_tries = 1 if not force else self.max_tries
         with self.vcp:
             for _ in range(num_tries):
                 try:
                     cap_str = self.vcp.get_vcp_capabilities()
                     vcp_cap = parse_capabilities(cap_str)
-                    # sometimes the dict is broken
                     if (name := vcp_cap.model) is not None:
                         self.__name = name
                         break
-                except VCPError as _:
-                    pass  # The monitor does not send capabilities
+                except VCPError as e:
+                    logger.error(f"Error updating capabilities: {e}")
 
-    def name(self):
+    def name(self) -> str:
+        """
+        Returns the name of the monitor.
+        :return: Monitor name.
+        """
         return self.__name
 
     @staticmethod
-    def default_name():
+    def default_name() -> str:
+        """
+        Returns the default name of the monitor.
+        :return: Default monitor name.
+        """
         return "Monitor"
 
     @staticmethod
-    def get_type():
+    def get_type() -> str:
+        """
+        Returns the type of the monitor.
+        :return: Monitor type.
+        """
         return "DDCCI"
 
     def get_brightness(self, blocking: bool = False, force: bool = False) -> Optional[int]:
+        """
+        Gets the brightness of the monitor.
+        :param blocking: If True, block until the brightness is retrieved.
+        :param force: If True, force the retrieval.
+        :return: Brightness value.
+        """
         max_tries = 1 if not blocking and not force else self.max_tries
         for _ in range(max_tries):
             with self.vcp:
@@ -119,6 +143,12 @@ class MonitorDDCCI(MonitorBase):
         return None
 
     def set_brightness(self, brightness: int, blocking: bool = False, force: bool = False) -> None:
+        """
+        Sets the brightness of the monitor.
+        :param brightness: Brightness value.
+        :param blocking: If True, block until the brightness is set.
+        :param force: If True, force the setting.
+        """
         max_tries = 1 if not blocking and not force else self.max_tries
         for _ in range(max_tries):
             with self.vcp:
