@@ -74,7 +74,4 @@ def parse_args() -> argparse.Namespace | None:
     _add_to_parsers([add_parser, remove_parser], "action",
                     {"choices": add_remove_actions, "help": "The action to perform."})
 
-    try:
-        return parser.parse_args()
-    except SystemExit as _:
-        return None
+    return parser.parse_args()

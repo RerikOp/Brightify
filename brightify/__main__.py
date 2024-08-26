@@ -177,15 +177,20 @@ if __name__ == '__main__':
     try:
         configure_logging()
         start_logging()
-        logger.critical("Brightify started")
+        #logger.critical("Brightify started")
     except Exception as e:
         with open(install_log, "a+") as f:
             f.write("Failed to configure logging\n")
             f.write(str(e) + "\n")
     sys.excepthook = excepthook
-    args = parse_args()
-    if args is None:
+
+    try:
+        args = parse_args()
+    except SystemExit as e:
         logger.error(f"Argument parsing failed. Most likely due to unknown arguments. Arguments: {sys.argv}")
+        exit(1)
+    except argparse.ArgumentError as e:
+        logger.info(f"Argument parsing failed: {e}")
         exit(1)
 
     # Thanks to no fall-through in match-case, have fun reading this...

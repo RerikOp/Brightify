@@ -114,19 +114,6 @@ def _display_to_handle_and_f_name_mapping(dmapping, hmapping, nmapping):
     return mapping
 
 
-def _get_monitor_descriptions() -> list[NamedTuple]:
-    import pyedid
-    c = wmi.WMI(namespace='wmi')
-    monitors = c.WmiMonitorDescriptorMethods()
-    edid_data = []
-    for monitor in monitors:
-        edid = bytes(monitor.WmiGetMonitorRawEEdidV1Block(0)[0])
-        if edid:
-            edid_hex = binascii.hexlify(edid).decode('ascii')
-            edid_data.append(pyedid.parse_edid(edid_hex))
-    return edid_data
-
-
 def display_to_handle_and_f_name_mapping():
     dmapping = _display_to_device_id_mapping(True)
     hmapping = _handle_to_display_mapping()
