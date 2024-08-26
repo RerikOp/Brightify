@@ -24,10 +24,10 @@ dependencies = [
     "pyserial",
     "libusb1",
     "PyQt6",
-    "monitorcontrol",
     # Windows-only dependencies
     'pywin32; platform_system == "Windows"',
     'winshell; platform_system == "Windows"',
     'wmi; platform_system == "Windows"',
+    'pyedid; platform_system == "Windows"',
     'pyudev; platform_system == "Linux"',
 ]

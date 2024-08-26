@@ -34,7 +34,9 @@ class MonitorUSB(MonitorBase):
             is_ready = time.time_ns() - self.last_interaction_ns >= self.usb_delay_ns
         return is_ready
 
-    def clamp_brightness(self, b):
+    def clamp_brightness(self, b: Optional[int]) -> Optional[int]:
+        if b is None:
+            return None
         return max(min(b, self.max_brightness), self.min_brightness)
 
     @staticmethod

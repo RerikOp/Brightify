@@ -1,7 +1,7 @@
 from typing import Optional
 
 from brightify.src_py.monitors.MonitorBase import MonitorBase, logger
-from brightify.src_py.monitors.vpc import VCP, VCPError, VCPCode, parse_capabilities
+from brightify.src_py.monitors.vpc import VCP, VCPError, VCPCode, VCPCodeDefinition, parse_capabilities
 
 
 class MonitorDDCCI(MonitorBase):
@@ -11,15 +11,22 @@ class MonitorDDCCI(MonitorBase):
         # The virtual control panel backend
         self.vcp = vcp
         # The luminance code
-        self.luminance_code = VCPCode("image_luminance")
-        # DDC/CI is annoying, so we try multiple times
+        self.luminance_code = VCPCodeDefinition.image_luminance
+        # Getting the capabilities can fail, so we try multiple times
         self.max_tries = 10
         # Store the max value of the codes
         self.code_max = {}
-        # VCP capabilities
-        self.vcp_cap, self.__name, self.is_unknown = {}, self.default_name(), True
-        # Try to get the VCP capabilities
-        self.update_cap()
+
+        # Check if VCP provides a name
+        if (name := self.vcp.name) is not None:
+            self.__name = name
+        else:
+            self.__name = self.default_name()
+            # Try to get the name from the VCP capabilities
+            self.update_cap()
+
+    def is_unknown(self):
+        return self.__name == self.default_name()
 
     def _get_code_maximum(self, code: VCPCode) -> int:
         """
@@ -29,7 +36,7 @@ class MonitorDDCCI(MonitorBase):
         :returns: Maximum value for the given code.
         """
         if not code.readable:
-            logger.error(f"Code is not readable: {code.name}")
+            logger.error(f"Code is not readable: {code}")
         if code.value in self.code_max:
             return self.code_max[code.value]
         else:
@@ -45,17 +52,17 @@ class MonitorDDCCI(MonitorBase):
         :param value: Feature value.
         """
         if code.type == "ro":
-            logger.error(f"Cannot write read-only code: {code.name}")
+            logger.error(f"Cannot write read-only code: {code}")
             return
         elif code.type == "rw" and code.function == "c":
             maximum = self._get_code_maximum(code)
             if value > maximum:
-                logger.error(f"Cannot set value greater than maximum: {code.name}")
+                logger.error(f"Cannot set value greater than maximum: {code}")
                 return
         try:
             self.vcp.set_vcp_feature(code.value, value)
         except VCPError:
-            logger.error(f"Failed to set VCP feature: {code.name}")
+            pass
 
     def _get_vcp_feature(self, code: VCPCode) -> Optional[int]:
         """
@@ -65,27 +72,28 @@ class MonitorDDCCI(MonitorBase):
         :returns: Current feature value.
         """
         if code.type == "wo":
-            logger.error(f"Cannot read write-only code: {code.name}")
+            logger.error(f"Cannot read write-only code: {code}")
             return None
         try:
             current, maximum = self.vcp.get_vcp_feature(code.value)
-            self.code_max[code.name] = maximum
+            self.code_max[code] = maximum
             return current
         except VCPError:
-            logger.error(f"Failed to get VCP feature: {code.name}")
             return None
 
-    def update_cap(self):
+    def update_cap(self, force: bool = False):
+        num_tries = 1 if not force else self.max_tries
         with self.vcp:
-            try:
-                cap_str = self.vcp.get_vcp_capabilities()
-                vcp_cap = parse_capabilities(cap_str)
-                # sometimes the dict is broken
-                if (name := vcp_cap.model) is not None:
-                    self.vcp_cap, self.__name, self.is_unknown = vcp_cap, name, False
-            except VCPError as e:
-                print(e)
-                pass  # The monitor does not send capabilities
+            for _ in range(num_tries):
+                try:
+                    cap_str = self.vcp.get_vcp_capabilities()
+                    vcp_cap = parse_capabilities(cap_str)
+                    # sometimes the dict is broken
+                    if (name := vcp_cap.model) is not None:
+                        self.__name = name
+                        break
+                except VCPError as _:
+                    pass  # The monitor does not send capabilities
 
     def name(self):
         return self.__name
@@ -103,10 +111,11 @@ class MonitorDDCCI(MonitorBase):
         for _ in range(max_tries):
             with self.vcp:
                 try:
-                    return self._get_vcp_feature(self.luminance_code)
-                except VCPError:
-                    pass
-        logger.debug(f"Failed to get luminance of DDCCI monitor \"{self.name()}\"")
+                    if (brightness := self._get_vcp_feature(self.luminance_code)) is not None:
+                        return brightness
+                except Exception as e:
+                    logger.error(f"Unexpected error: {e}")
+        logger.debug(f"Failed to get brightness of DDCCI monitor \"{self.name()}\"")
         return None
 
     def set_brightness(self, brightness: int, blocking: bool = False, force: bool = False) -> None:
@@ -116,6 +125,6 @@ class MonitorDDCCI(MonitorBase):
                 try:
                     self._set_vcp_feature(self.luminance_code, brightness)
                     return
-                except VCPError:
-                    pass
-        logger.debug(f"Failed to set luminance of DDCCI monitor \"{self.name()}\"")
+                except Exception as e:
+                    logger.error(f"Unexpected error: {e}")
+        logger.debug(f"Failed to set brightness of DDCCI monitor \"{self.name()}\"")

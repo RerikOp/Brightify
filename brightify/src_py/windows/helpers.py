@@ -1,4 +1,6 @@
+import ctypes
 import logging
+from ctypes import wintypes
 from typing import Literal
 
 from brightify import host_os
@@ -63,3 +65,54 @@ def animation_enabled() -> bool:
 def get_theme() -> Theme:
     return Theme(mode=get_mode(), accent_color=get_color(),
                  has_animations=animation_enabled())
+
+
+class LUID(ctypes.Structure):
+    __slots__ = ()
+    _fields_ = (('LowPart', wintypes.DWORD),
+                ('HighPart', wintypes.LONG))
+
+    def __init__(self, value=0, *args, **kw):
+        super().__init__(*args, **kw)
+        self.HighPart = value >> 32
+        self.LowPart = value & ((1 << 32) - 1)
+
+    def __int__(self):
+        return self.HighPart << 32 | self.LowPart
+
+
+def ser_struct(ctypes_struct: ctypes.Structure | ctypes.Union, indent: int = 0) -> str:
+    # get the name of the instance
+    s = "\t" * indent + f"{ctypes_struct.__class__.__name__}\n"
+
+    for field in ctypes_struct._fields_:
+        bit_width = ""
+        if len(field) == 2:
+            field_name, field_type = field
+        elif len(field) == 3:
+            field_name, field_type, bit_width = field
+            bit_width = f": {bit_width}"
+        else:  # we hope for the best
+            field_name = field[0]
+            field_type = field[1]
+        field_val = getattr(ctypes_struct, field_name)
+
+        if isinstance(field_val, LUID):
+            field_val = int(field_val)
+        # if value is a function of field_val, call it
+        if "value" in dir(field_val):
+            field_val = field_val.value
+
+        if isinstance(field_val, ctypes.Structure):
+            s += "\t" * (indent + 1) + f"STRUCT {field_name}\n"
+            s += ser_struct(field_val, indent + 1)
+        elif issubclass(field_type, ctypes.Union):
+            s += "\t" * (indent + 1) + f"UNION {field_name}\n"
+            s += ser_struct(field_val, indent + 1)
+        else:
+            s += "\t" * (indent + 1) + f"{field_name}{bit_width} = {field_val}\n"
+    s = s.replace("\t", "  ")
+    lines = s.split("\n")
+    longest_line = max([len(line) for line in lines])
+    s = "\t" * indent + "-" * longest_line + "\n" + s + "\t" * indent + "-" * longest_line + "\n"
+    return s

@@ -2,7 +2,7 @@ import abc
 import enum
 from dataclasses import dataclass, field
 from types import TracebackType
-from typing import Optional, Tuple, Type, Dict, List, Union
+from typing import Optional, Tuple, Type, Dict, List, Union, Literal
 import re
 
 
@@ -37,6 +37,9 @@ class InputSourceValueError(VCPError):
 
 
 class VCP(abc.ABC):
+    def __init__(self, name: Optional[str] = None):
+        self.name = name
+
     @abc.abstractmethod
     def __enter__(self):
         pass
@@ -82,99 +85,11 @@ class VCP(abc.ABC):
         pass
 
 
-# incomplete list of VCP codes from the MCCS specification
-vcp_code_definitions = {
-    "image_factory_default": {
-        "name": "restore factory default image",
-        "value": 0x04,
-        "type": "wo",
-        "function": "nc",
-    },
-    "image_luminance": {
-        "name": "image luminance",
-        "value": 0x10,
-        "type": "rw",
-        "function": "c",
-    },
-    "image_contrast": {
-        "name": "image contrast",
-        "value": 0x12,
-        "type": "rw",
-        "function": "c",
-    },
-    "image_color_preset": {
-        "name": "image color preset",
-        "value": 0x14,
-        "type": "rw",
-        "function": "nc",
-    },
-    "active_control": {
-        "name": "active control",
-        "value": 0x52,
-        "type": "ro",
-        "function": "nc",
-    },
-    "input_select": {
-        "name": "input select",
-        "value": 0x60,
-        "type": "rw",
-        "function": "nc",
-    },
-    "image_orientation": {
-        "name": "image orientation",
-        "value": 0xAA,
-        "type": "ro",
-        "function": "nc",
-    },
-    "display_power_mode": {
-        "name": "display power mode",
-        "value": 0xD6,
-        "type": "rw",
-        "function": "nc",
-    },
-}
-
-
+@dataclass(frozen=True)
 class VCPCode:
-    """
-    Virtual Control Panel code. Simple container for the control codes defined by the VESA Monitor Control Command Set (MCCS).
-
-    This should be used by getting the code from get_vcp_code_definition().
-
-    :param name: VCP code name.
-    :raises KeyError: VCP code not found.
-    """
-
-    def __init__(self, name: str):
-        self.definition = vcp_code_definitions[name]
-
-    def __repr__(self) -> str:
-        return (
-            "virtual control panel code definition. "
-            f"value: {self.value} "
-            f"type: {self.type}"
-            f"function: {self.function}"
-        )
-
-    @property
-    def name(self) -> int:
-        """Friendly name of the code."""
-        return self.definition["name"]
-
-    @property
-    def value(self) -> int:
-        """Value of the code."""
-        return self.definition["value"]
-
-    @property
-    def type(self) -> str:
-        """Type of the code."""
-        return self.definition["type"]
-
-    @property
-    def function(self) -> str:
-        """Function of the code."""
-        return self.definition["function"]
+    value: int
+    type: Literal["ro", "rw", "wo"]
+    function: Literal["nc", "c"]
 
     @property
     def readable(self) -> bool:
@@ -191,6 +106,17 @@ class VCPCode:
             return False
         else:
             return True
+
+
+class VCPCodeDefinition:
+    restore_factory_default_image: VCPCode = VCPCode(value=0x04, type="wo", function="nc")
+    image_luminance: VCPCode = VCPCode(value=0x10, type="rw", function="c")
+    image_contrast: VCPCode = VCPCode(value=0x12, type="rw", function="c")
+    image_color_preset: VCPCode = VCPCode(value=0x14, type="rw", function="nc")
+    active_control: VCPCode = VCPCode(value=0x52, type="ro", function="nc")
+    input_select: VCPCode = VCPCode(value=0x60, type="rw", function="nc")
+    image_orientation: VCPCode = VCPCode(value=0xAA, type="ro", function="nc")
+    display_power_mode: VCPCode = VCPCode(value=0xD6, type="rw", function="nc")
 
 
 @enum.unique
@@ -272,39 +198,35 @@ def parse_capabilities(caps_str: str) -> Capabilities:
 
     for key in Capabilities.__annotations__:
         if key in ["cmds", "vcp"]:
-            parsed_values[key] = _convert_to_dict(_extract_cap(caps_str, key))
+            parsed_values[key] = _cap_to_dict(_extract_cap(caps_str, key))
         else:
             parsed_values[key] = _extract_cap(caps_str, key)
 
     # Parse the input sources into a text list for readability
-    input_source_cap = VCPCode("input_select").value
+    input_source_cap = VCPCodeDefinition.input_select.value
     if input_source_cap in parsed_values["vcp"]:
         inputs = []
         input_val_list = list(parsed_values["vcp"][input_source_cap].keys())
         input_val_list.sort()
-
         for val in input_val_list:
             try:
                 input_source = InputSource(val)
             except ValueError:
                 input_source = val
-
             inputs.append(input_source)
         parsed_values["inputs"] = inputs
 
     # Parse the color presets into a text list for readability
-    color_preset_cap = VCPCode("image_color_preset").value
+    color_preset_cap = VCPCodeDefinition.image_color_preset.value
     if color_preset_cap in parsed_values["vcp"]:
         color_presets = []
-        color_val_list = list(parsed_values["vcp"][color_preset_cap])
+        color_val_list = list(parsed_values["vcp"][color_preset_cap].keys())
         color_val_list.sort()
-
         for val in color_val_list:
             try:
                 color_source = ColorPreset(val)
             except ValueError:
                 color_source = val
-
             color_presets.append(color_source)
         parsed_values["color_presets"] = color_presets
 
@@ -329,7 +251,7 @@ def _extract_cap(caps_str: str, key: str) -> str:
     return ""
 
 
-def _convert_to_dict(caps_str: str) -> dict:
+def _cap_to_dict(caps_str: str) -> dict:
     """
     Parses the VCP capabilities string to a dictionary.
     Non-continuous capabilities will include an array of all supported values.

@@ -1,8 +1,9 @@
+import logging
+
 from brightify.src_py.monitors.vpc import VCP, VCPError
 from types import TracebackType
 from typing import List, Optional, Tuple, Type
 import ctypes
-import logging
 
 from ctypes.wintypes import (
     DWORD,
@@ -13,9 +14,11 @@ from ctypes.wintypes import (
     LPARAM,
     HANDLE,
     BYTE,
-    WCHAR,
+    WCHAR
 )
 
+# Use OS specific logger
+logger = logging.getLogger("Windows")
 
 class PhysicalMonitor(ctypes.Structure):
     _fields_ = [("handle", HANDLE), ("description", WCHAR * 128)]
@@ -29,12 +32,17 @@ class WindowsVCP(VCP):
         https://stackoverflow.com/questions/16588133/
     """
 
-    def __init__(self, hmonitor: HMONITOR):
+    def __init__(self, hmonitor: HMONITOR, name: Optional[str] = None):
         """
         Initializes the WindowsVCP instance.
-        :param hmonitor: logical monitor handle
+        :param hmonitor: logical monitor handle.
+        Each physical display is represented by a monitor handle of type HMONITOR.
+        A valid HMONITOR is guaranteed to be non-NULL.
+        A physical display has the same HMONITOR as long as it is part of the desktop
         """
+        super().__init__(name=name)
         self.hmonitor = hmonitor
+        self.handle = None
 
     def __enter__(self):
         """
@@ -43,44 +51,28 @@ class WindowsVCP(VCP):
         """
         num_physical = DWORD()
         try:
-            if not ctypes.windll.dxva2.GetNumberOfPhysicalMonitorsFromHMONITOR(
-                    self.hmonitor, ctypes.byref(num_physical)
-            ):
+            if not ctypes.windll.dxva2.GetNumberOfPhysicalMonitorsFromHMONITOR(self.hmonitor,
+                                                                               ctypes.byref(num_physical)):
                 raise VCPError(
-                    "Call to GetNumberOfPhysicalMonitorsFromHMONITOR failed: "
-                    + ctypes.FormatError()
-                )
+                    "Call to GetNumberOfPhysicalMonitorsFromHMONITOR failed: " + ctypes.FormatError())
         except OSError as e:
-            raise VCPError(
-                "Call to GetNumberOfPhysicalMonitorsFromHMONITOR failed"
-            ) from e
-
+            raise VCPError("Call to GetNumberOfPhysicalMonitorsFromHMONITOR failed") from e
         if num_physical.value == 0:
             raise VCPError("no physical monitor found")
         elif num_physical.value > 1:
             raise VCPError("more than one physical monitor per hmonitor")
-
-        physical_monitors = (PhysicalMonitor * num_physical.value)()
+        physical_monitors = PhysicalMonitor()
         try:
-            if not ctypes.windll.dxva2.GetPhysicalMonitorsFromHMONITOR(
-                    self.hmonitor, num_physical.value, physical_monitors
-            ):
-                raise VCPError(
-                    "Call to GetPhysicalMonitorsFromHMONITOR failed: "
-                    + ctypes.FormatError()
-                )
+            if not ctypes.windll.dxva2.GetPhysicalMonitorsFromHMONITOR(self.hmonitor, 1, physical_monitors):
+                raise VCPError("Call to GetPhysicalMonitorsFromHMONITOR failed: " + ctypes.FormatError())
         except OSError as e:
             raise VCPError("failed to open physical monitor handle") from e
-        self.handle = physical_monitors[0].handle
-        self.description = physical_monitors[0].description
+        self.handle = physical_monitors.handle
         return self
 
-    def __exit__(
-            self,
-            exception_type: Optional[Type[BaseException]],
-            exception_value: Optional[BaseException],
-            exception_traceback: Optional[TracebackType],
-    ) -> Optional[bool]:
+    def __exit__(self, exception_type: Optional[Type[BaseException]], exception_value: Optional[BaseException],
+                 exception_traceback: Optional[TracebackType],
+                 ) -> Optional[bool]:
         """
         Exits the runtime context related to this object.
         :param exception_type: exception type
@@ -90,9 +82,7 @@ class WindowsVCP(VCP):
         """
         try:
             if not ctypes.windll.dxva2.DestroyPhysicalMonitor(self.handle):
-                raise VCPError(
-                    "Call to DestroyPhysicalMonitor failed: " + ctypes.FormatError()
-                )
+                raise VCPError("Call to DestroyPhysicalMonitor failed: " + ctypes.FormatError())
         except OSError as e:
             raise VCPError("failed to close handle") from e
         return False
@@ -105,9 +95,7 @@ class WindowsVCP(VCP):
         :raises VCPError: Failed to set VCP feature.
         """
         try:
-            if not ctypes.windll.dxva2.SetVCPFeature(
-                    HANDLE(self.handle), BYTE(code), DWORD(value)
-            ):
+            if not ctypes.windll.dxva2.SetVCPFeature(HANDLE(self.handle), BYTE(code), DWORD(value)):
                 raise VCPError("failed to set VCP feature: " + ctypes.FormatError())
         except OSError as e:
             raise VCPError("failed to close handle") from e
@@ -143,13 +131,13 @@ class WindowsVCP(VCP):
         cap_length = DWORD()
         try:
             if not ctypes.windll.dxva2.GetCapabilitiesStringLength(HANDLE(self.handle), ctypes.byref(cap_length)):
-                raise VCPError("failed to get VCP capabilities: " + ctypes.FormatError())
+                raise VCPError("Failed to get VCP capabilities: " + ctypes.FormatError())
             cap_string = (ctypes.c_char * cap_length.value)()
             if not ctypes.windll.dxva2.CapabilitiesRequestAndCapabilitiesReply(
                     HANDLE(self.handle), cap_string, cap_length):
-                raise VCPError("failed to get VCP capabilities: " + ctypes.FormatError())
+                raise VCPError("Failed to get VCP capabilities: " + ctypes.FormatError())
         except OSError as e:
-            raise VCPError("failed to get VCP capabilities") from e
+            raise VCPError(f"Getting VCP capabilities failed with OSError: {e}")
         return cap_string.value.decode("ascii")
 
 
@@ -159,17 +147,16 @@ def get_vcps() -> List[WindowsVCP]:
     :return: List of all VCPs detected.
     :raises VCPError: Failed to enumerate VCPs.
     """
+    from brightify.src_py.windows.find_name_windows import display_to_handle_and_f_name_mapping
+    mapping = display_to_handle_and_f_name_mapping()
     vcps = []
     hmonitors = []
-
     try:
         def _callback(hmonitor, hdc, lprect, lparam):
             hmonitors.append(HMONITOR(hmonitor))
             del hmonitor, hdc, lprect, lparam
             return True  # continue enumeration
-
-        MONITORENUMPROC = ctypes.WINFUNCTYPE(  # noqa: N806
-            BOOL, HMONITOR, HDC, ctypes.POINTER(RECT), LPARAM)
+        MONITORENUMPROC = ctypes.WINFUNCTYPE(BOOL, HMONITOR, HDC, ctypes.POINTER(RECT), LPARAM)
         callback = MONITORENUMPROC(_callback)
         if not ctypes.windll.user32.EnumDisplayMonitors(0, 0, callback, 0):
             raise VCPError("Call to EnumDisplayMonitors failed")
@@ -177,6 +164,14 @@ def get_vcps() -> List[WindowsVCP]:
         raise VCPError("failed to enumerate VCPs") from e
 
     for logical in hmonitors:
-        vcps.append(WindowsVCP(logical))
-
+        # find the physical monitor handle in the mapping:
+        name = None
+        for display, (f_name, handle) in mapping.items():
+            try:
+                if handle.value == logical.value:
+                    name = f_name
+                    break
+            except Exception as e:
+                logger.error(f"Failed to get handle value: {e}")
+        vcps.append(WindowsVCP(logical, name))
     return vcps

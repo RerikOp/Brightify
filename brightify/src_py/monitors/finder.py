@@ -71,24 +71,19 @@ def _ddcci_monitors() -> List[MonitorDDCCI]:
             logger.error(f"Failed to connect to DDCCI monitor: {e}")
             continue
 
-        is_working, name_found = False, False
-        for _ in range(m_impl.max_tries):
-            if not is_working:
-                is_working = m_impl.get_brightness() is not None
-            if not name_found:
-                m_impl.update_cap()
-                name_found = not m_impl.is_unknown
-            if is_working and name_found:
-                break
-        if is_working:
-            impls.append(m_impl)
-            if not name_found:
-                logger.info(f"Found undefined DDCCI Monitor")
-            else:
-                logger.info(f"Found DDCCI Monitor {m_impl.name()}")
-        else:
-            logger.info(f"Failed to connect to DDCCI monitor")
+        if m_impl.is_unknown():
+            logger.debug(f"Found unknown DDCCI Monitor. Trying to force name from VCP capabilities")
+            m_impl.update_cap(force=True)
 
+        if m_impl.is_unknown():
+            logger.info(f"Found unknown DDCCI Monitor")
+
+        try:
+            m_impl.get_brightness(force=True)
+        except Exception as e:
+            logger.error(f"Failed to get brightness of DDCCI monitor \"{m_impl.name()}\": {e}")
+            continue
+        impls.append(m_impl)
     return impls
 
 
@@ -98,8 +93,8 @@ def _internal_monitors() -> List[MonitorBase]:
     :return: a list of all MonitorBase implementations
     """
     if host_os == "Windows":
-        from brightify.src_py.windows.MonitorWMI import WMIMonitor
-        if WMIMonitor.has_wmi_monitor():
+        from brightify.src_py.windows.MonitorWMI import WMIMonitor, has_wmi_monitor
+        if has_wmi_monitor():
             return [WMIMonitor()]
     return []
 

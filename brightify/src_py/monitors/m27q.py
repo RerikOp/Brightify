@@ -4,12 +4,15 @@ import usb1
 
 from brightify.src_py.monitors.MonitorUSB import MonitorUSB
 from brightify.src_py.monitors.MonitorBase import logger
-
+from brightify.src_py.monitors.vpc import VCPCodeDefinition
 
 class M27Q(MonitorUSB):
 
     def __init__(self, device: usb1.USBDevice):
         super().__init__(device)
+        # The number of times to retry getting/setting the brightness
+        self.max_tries = 10
+        self.luminance_code = VCPCodeDefinition.image_luminance.value
 
     @staticmethod
     def vid():
@@ -77,29 +80,54 @@ class M27Q(MonitorUSB):
             continue
 
     def set_brightness(self, brightness: int, blocking=False, force: bool = False):
+        blocking = blocking or force  # force implies blocking
+
+        def set():
+            try:
+                self.set_osd([self.luminance_code, 0x00, brightness])
+            except Exception as e:
+                logger.error(f"Failed to set brightness: {e}")
+
         with self.lock:
             brightness = self.clamp_brightness(brightness)
-            if force or blocking:
+            if blocking:
                 self.wait()
-                self.set_osd([0x10, 0x00, brightness])
-            else:
-                self.set_osd([0x10, 0x00, brightness])
+            set()
+
+        if force:
+            for _ in range(self.max_tries):
+                if self.get_brightness(blocking=True) == brightness:
+                    return
+                with self.lock:
+                    set()
 
     def get_brightness(self, blocking=False, force: bool = False):
+        blocking = blocking or force  # force implies blocking
+
+        def get():
+            try:
+                return self.get_osd([self.luminance_code])
+            except Exception as e:
+                logger.error(f"Failed to get brightness: {e}")
+                return None
+
         with self.lock:
-            if force:
-                responses = []
-                for _ in range(7):
-                    resp = self.get_osd([0x10])
-                    if resp is not None:
-                        responses.append(resp)
-                resp = max(set(responses), key=responses.count)
-            elif blocking:
-                self.wait()
-                resp = self.get_osd([0x10])
+            if not blocking:
+                resp = get() if self.is_ready() else None
             else:
-                if self.is_ready():
-                    resp = self.get_osd([0x10])
-                else:
-                    return None
+                self.wait()
+                resp = get()
+                if force:
+                    responses = [resp] if resp is not None else []
+                    retry = 0
+                    while len(responses) < 5:
+                        retry += 1
+                        if retry > self.max_tries:
+                            break
+                        if (resp := get()) is not None:
+                            responses.append(resp)
+                            self.wait()
+                    resp = max(set(responses), key=responses.count) if resp is not None else None
+
+        if resp is not None:
             return self.clamp_brightness(resp)

@@ -3,6 +3,17 @@ from brightify.src_py.monitors.MonitorBase import logger
 import wmi
 
 
+def has_wmi_monitor() -> bool:
+    try:
+        _ = wmi.WMI(namespace='wmi').WmiMonitorBrightnessMethods()[0].WmiSetBrightness
+        _ = wmi.WMI(namespace='wmi').WmiMonitorBrightness()[0].CurrentBrightness
+        return True
+    except AttributeError:
+        return False
+    except wmi.x_wmi as _:
+        return False
+
+
 class WMIMonitor(MonitorBase):
     def __init__(self):
         super().__init__(0, 100)
@@ -15,17 +26,6 @@ class WMIMonitor(MonitorBase):
         except wmi.x_wmi as _:
             logger.error("Internal monitor not found.")
             return
-
-    @staticmethod
-    def has_wmi_monitor() -> bool:
-        try:
-            _ = wmi.WMI(namespace='wmi').WmiMonitorBrightnessMethods()[0].WmiSetBrightness
-            _ = wmi.WMI(namespace='wmi').WmiMonitorBrightness()[0].CurrentBrightness
-            return True
-        except AttributeError:
-            return False
-        except wmi.x_wmi as _:
-            return False
 
     @staticmethod
     def get_type():

@@ -1,6 +1,6 @@
 import logging
 from abc import ABC, abstractmethod
-from typing import Optional, Iterable
+from typing import Optional, Iterable, Union
 
 from brightify import app_name
 
@@ -15,17 +15,20 @@ class MonitorBase(ABC):
     @abstractmethod
     def get_brightness(self, blocking: bool = False, force: bool = False) -> Optional[int]:
         """
-        Provides thread safe access to get the monitors brightness
+        Provides thread safe access to get the monitors' brightness. Must not raise exceptions.
+        On any failure, return None and, optionally, log the error.
+        Must return in a reasonable time frame as it is called from the main thread.
         :param blocking: if true, optionally stalls until a resource is ready
         :param force: block until resource is ready and use additional methods to get the brightness
-        :return: the current brightness or None if device is blocked, etc.
+        :return: the current brightness or None if device is blocked, an error occurred or the brightness is unknown
         """
         pass
 
     @abstractmethod
     def set_brightness(self, brightness: int, blocking: bool = False, force: bool = False) -> None:
         """
-        Provides thread safe access to set the monitor's brightness.
+        Provides thread safe access to set the monitor's brightness. Must not raise exceptions.
+        Must return in a reasonable time frame as it is called from the main thread.
         :param brightness: the value to set
         :param blocking: if true, optionally stalls until a resource is ready
         :param force: block until resource is ready and use additional methods to set the brightness
@@ -35,19 +38,22 @@ class MonitorBase(ABC):
 
     @abstractmethod
     def name(self):
+        """
+        :return: the name of the monitor
+        """
         pass
 
     @staticmethod
     def get_type():
         return "ANY"
 
-    def convert_sensor_readings(self, readings: Iterable) -> Optional[int]:
+    def convert_sensor_readings(self, readings: Iterable[Union[int, float]]) -> Optional[int]:
         """
-        Converts a number of sensor readings to the new brightness of this monitor
-        :param readings: an Iterable that contains the most recent readings.
-         The first element is the oldest reading
+        Converts a number of sensor readings to the new brightness of this monitor. Must not raise exceptions.
+        :param readings: an Iterable that contains the most recent readings. Must not contain None.
+        The first element is the oldest reading
         :return: an int representing a proposed new brightness between self.min_brightness and self.max_brightness
-        or None if the sensor data doesn't indicate a brightness switch
+        or None if the sensor data doesn't indicate a brightness switch or the sensor data is invalid.
         """
         diff_th = 5
 

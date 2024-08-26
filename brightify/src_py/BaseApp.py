@@ -13,7 +13,6 @@ from brightify.src_py.monitors.finder import get_supported_monitors
 from brightify.src_py.ui_config import MonitorRow
 from brightify.src_py.ui_config import UIConfig
 from brightify.src_py.monitors.MonitorBase import MonitorBase
-from brightify.src_py.monitors.MonitorDDCCI import MonitorDDCCI
 
 # use global logger
 logger = logging.getLogger(app_name)
@@ -149,21 +148,13 @@ class BaseApp(QMainWindow):
 
     @staticmethod
     def __connect_monitor(row: MonitorRow, monitor: MonitorBase) -> bool:
-        try:
-            initial_brightness = monitor.get_brightness(force=True)
-        except Exception as e:
-            logger.error(f"Failed to get initial brightness for {monitor.name()}: {e}. Dropping monitor.")
+        initial_brightness = monitor.get_brightness(force=True)
+        if initial_brightness is None:
+            logger.warning(f"Failed to get initial brightness of monitor {monitor.name()}. Skipping it.")
             return False
 
-        if initial_brightness is not None:
-            row.slider.setValue(initial_brightness)
-        else:
-            row.slider.setValue(0)
-        # for DDCCI monitors, set the brightness after releasing the slider to prevent lag
-        if isinstance(monitor, MonitorDDCCI):
-            row.slider.sliderReleased.connect(lambda: monitor.set_brightness(row.slider.value(), force=True))
-        else:
-            row.slider.valueChanged.connect(lambda value: monitor.set_brightness(value, force=True))
+        row.slider.setValue(initial_brightness)
+        row.slider.valueChanged.connect(lambda value: monitor.set_brightness(value, blocking=True))
         row.monitor = monitor
         return True
 
