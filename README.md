@@ -9,10 +9,8 @@
 </div>
 
 This app allows you to set the brightness of your monitor(s). It is essentially a wrapper around
-the [DDC/CI](https://en.wikipedia.org/wiki/Display_Data_Channel#DDC/CI) protocol, which is supported by most monitors.
-It also supports adding custom communication protocols to control the brightness of USB monitors. For this, you most
-likely need to reverse engineer the communication protocol of the monitor. In my experience, this provides a more stable
-experience than using the DDC/CI protocol.
+the [DDC/CI](https://en.wikipedia.org/wiki/Display_Data_Channel#DDC/CI) protocol, which is supported by most modern monitors.
+It also supports adding custom communication protocols to control the brightness of Monitors connected via USB.
 You can find an example implementation for the [Gigabyte M27Q](https://www.gigabyte.com/Monitor/M27Q)
 in [here](brightify/src_py/monitors/m27q.py).
 The app is designed to be run in the background and can be controlled via a taskbar icon. It also supports a brightness
