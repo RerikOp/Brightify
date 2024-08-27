@@ -29,6 +29,17 @@ sensor that can automatically adjust the brightness based on the ambient light.
    run
    `python -m brightify remove all`.
 
+### Additional requirements for Linux
+As the DDC/CI protocol requires write access to the `/dev/i2c-*` devices, you need to add your user to the `i2c` group.
+- First, verify that the group exists by running `getent group i2c`. 
+  - If it does not exist, you need to create it by running `sudo groupadd i2c` and also assign the `i2c` devices to the group by running `sudo chown root:i2c /dev/i2c-*`.
+- Now you can add your user to the group by running `sudo usermod -aG i2c $USER`. Verify that the user is in the group by running
+`groups $USER` and checking if `i2c` is listed. If running `groups` does not show `i2c`, you need restart the system.
+- Finally, you might need to change the permissions of the `/dev/i2c-*` so that the group has read/write access. You can do this by running `sudo chmod g+rw /dev/i2c-*`.
+  - If this change is not permanent you can create a udev rule by creating a file in `/etc/udev/rules.d/` with the content `KERNEL=="i2c-[0-9]*", GROUP="i2c", MODE="0660"`.
+  - After creating the file, you need to reload the udev rules by running `sudo udevadm control --reload-rules && sudo udevadm trigger`.
+- To remove the user from the group, run `sudo deluser $USER i2c`.
+
 ## Optional arguments
 
 There are several other arguments you can pass to the app, see `python -m brightify --help` for more information.
