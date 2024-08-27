@@ -9,10 +9,8 @@
 </div>
 
 This app allows you to set the brightness of your monitor(s). It is essentially a wrapper around
-the [DDC/CI](https://en.wikipedia.org/wiki/Display_Data_Channel#DDC/CI) protocol, which is supported by most monitors.
-It also supports adding custom communication protocols to control the brightness of USB monitors. For this, you most
-likely need to reverse engineer the communication protocol of the monitor. In my experience, this provides a more stable
-experience than using the DDC/CI protocol.
+the [DDC/CI](https://en.wikipedia.org/wiki/Display_Data_Channel#DDC/CI) protocol, which is supported by most modern monitors.
+It also supports adding custom communication protocols to control the brightness of Monitors connected via USB.
 You can find an example implementation for the [Gigabyte M27Q](https://www.gigabyte.com/Monitor/M27Q)
 in [here](brightify/src_py/monitors/m27q.py).
 The app is designed to be run in the background and can be controlled via a taskbar icon. It also supports a brightness
@@ -30,7 +28,7 @@ sensor that can automatically adjust the brightness based on the ambient light.
    `python -m brightify remove all`.
 
 ### Additional requirements for Linux
-As the DDC/CI protocol requires write access to the `/dev/i2c-*` devices, you need to add your user to the `i2c` group.
+As the DDC/CI protocol requires write access to the `/dev/i2c-*` devices, you need to add your user to the `i2c` group (or run the script as the root user).
 - First, verify that the group exists by running `getent group i2c`. 
   - If it does not exist, you need to create it by running `sudo groupadd i2c` and also assign the `i2c` devices to the group by running `sudo chown root:i2c /dev/i2c-*`.
 - Now you can add your user to the group by running `sudo usermod -aG i2c $USER`. Verify that the user is in the group by running
