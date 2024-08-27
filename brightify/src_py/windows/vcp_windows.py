@@ -17,8 +17,10 @@ class PhysicalMonitor(ctypes.Structure):
 class WindowsVCP(VCP):
     """
     Windows API access to a monitor's virtual control panel.
-    """
 
+    References:
+        https://github.com/newAM/monitorcontrol
+    """
     def __init__(self, hmonitor: HMONITOR, name: Optional[str] = None):
         super().__init__(name=name)
         self.hmonitor = hmonitor
@@ -98,6 +100,9 @@ class WindowsVCP(VCP):
         except OSError as e:
             raise VCPError(f"Getting VCP capabilities failed with OSError: {e}")
         return cap_string.value.decode("ascii")
+
+    def close(self):
+        pass
 
 
 def get_vcps() -> List[WindowsVCP]:

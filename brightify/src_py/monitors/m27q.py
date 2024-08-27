@@ -119,13 +119,6 @@ class M27Q(MonitorUSB):
             message=bytearray([0x6E, 0x51, 0x81 + len(data), 0x03]) + bytearray(data)
         )
 
-    def wait(self):
-        """
-        Waits until the monitor is ready for interaction.
-        """
-        if not self.is_ready():
-            time.sleep(self.time_to_wait_sec())
-
     def set_brightness(self, brightness: int, blocking=False, force: bool = False):
         """
         Sets the brightness of the monitor.

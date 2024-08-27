@@ -84,6 +84,8 @@ class VCP(abc.ABC):
         """
         pass
 
+    def close(self):
+        pass
 
 @dataclass(frozen=True)
 class VCPCode:

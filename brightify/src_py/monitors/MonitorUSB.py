@@ -43,6 +43,13 @@ class MonitorUSB(MonitorBase):
             logger.error(f"Error calculating time to wait: {e}", exc_info=True)
             return 0
 
+    def wait(self):
+        """
+        Waits until the monitor is ready for interaction.
+        """
+        if not self.is_ready():
+            time.sleep(self.time_to_wait_sec())
+
     def is_ready(self) -> bool:
         """
         Checks if the monitor is ready for interaction.

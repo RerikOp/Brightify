@@ -158,3 +158,13 @@ class MonitorDDCCI(MonitorBase):
                 except Exception as e:
                     logger.error(f"Unexpected error: {e}")
         logger.debug(f"Failed to set brightness of DDCCI monitor \"{self.name()}\"")
+
+    def __del__(self):
+        """
+        Destructor to ensure the VCP instance is properly closed.
+        """
+        try:
+            self.vcp.close()
+            super().__del__()
+        except Exception as e:
+            logger.error(f"Error during cleanup: {e}", exc_info=True)
