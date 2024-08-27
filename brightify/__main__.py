@@ -27,7 +27,8 @@ def main_win(app, runtime_args: argparse.Namespace):
     import ctypes
     from brightify.src_py.windows.WindowsApp import WindowsApp
     os_event = OSEvent()
-    brightify_app = BrightifyApp(os_event, runtime_args, window_type=Qt.WindowType.Tool)  # must be tool window to hide from taskbar
+    brightify_app = BrightifyApp(os_event, runtime_args,
+                                 window_type=Qt.WindowType.Tool)  # must be tool window to hide from taskbar
     win_app = WindowsApp(os_event)
     running = True
 
@@ -57,6 +58,7 @@ def main_win(app, runtime_args: argparse.Namespace):
         brightify_app.close()
         windows_thread.quit()
         windows_thread.wait()
+
     # connect cleanup to app exit
     app.aboutToQuit.connect(cleanup)
     atexit.register(cleanup)
@@ -69,15 +71,26 @@ def main_win(app, runtime_args: argparse.Namespace):
 
 
 def main_linux(app, runtime_args: argparse.Namespace):
-    base_app = BrightifyApp(None, runtime_args)
+    brightify_app = BrightifyApp(None, runtime_args)
+    running = True
     logger.warning("Linux not tested yet")
     # disable animations
-    base_app.ui_config.theme.has_animations = False
-    base_app.redraw()
-    base_app.change_state("show")
-    ret_code = app.exec()
-    logger.info(f"Exiting with code {ret_code}")
-    exit(ret_code)
+    brightify_app.ui_config.theme.has_animations = False
+    brightify_app.redraw()
+    brightify_app.change_state("show")
+
+    def cleanup():
+        nonlocal running
+        if not running:
+            return
+        running = False
+        brightify_app.close()
+
+    app.aboutToQuit.connect(cleanup)
+    try:
+        app.exec()
+    finally:
+        cleanup()
 
 
 def main_darwin(app, runtime_args: argparse.Namespace):
