@@ -2,6 +2,8 @@ import logging
 import sys
 import argparse
 from pathlib import Path
+import atexit
+
 from brightify import app_name, host_os, brightify_dir, OSEvent, parse_args
 from brightify.src_py.BrightifyApp import BrightifyApp
 from brightify.brightify_log import configure_logging, start_logging
@@ -10,11 +12,13 @@ from brightify.brightify_log import configure_logging, start_logging
 logger = logging.getLogger(app_name)
 
 
-def excepthook(exc_type, exc_value, exc_tb):
+def except_hook(exc_type, exc_value, exc_tb):
+    from PyQt6.QtWidgets import QApplication
     if exc_type is KeyboardInterrupt:
-        logger.info("User interrupted the program, exiting...")
-        exit(0)
-    logger.exception("An unhandled exception occurred", exc_info=(exc_type, exc_value, exc_tb))
+        logger.debug("User interrupted the program, exiting.")
+        QApplication.quit()
+    else:
+        logger.exception("An unhandled exception occurred", exc_info=(exc_type, exc_value, exc_tb))
 
 
 def main_win(app, runtime_args: argparse.Namespace):
@@ -23,14 +27,15 @@ def main_win(app, runtime_args: argparse.Namespace):
     import ctypes
     from brightify.src_py.windows.WindowsApp import WindowsApp
     os_event = OSEvent()
-    BrightifyApp(os_event, runtime_args, window_type=Qt.WindowType.Tool)
+    brightify_app = BrightifyApp(os_event, runtime_args, window_type=Qt.WindowType.Tool)  # must be tool window to hide from taskbar
     win_app = WindowsApp(os_event)
+    running = True
 
     class WindowsThread(QThread):
         def run(self):
             # It appears that LBUTTONDOWN is only received after LBUTTONUP. Thus, we need to poll the mouse state
             already_handled = False
-            while self.isRunning():
+            while running:
                 l_button_down = ctypes.windll.user32.GetAsyncKeyState(win_app.primary_click) & 0x8000 != 0
                 if l_button_down and not already_handled:  # corresponds to LBUTTONDOWN
                     already_handled = True
@@ -41,13 +46,26 @@ def main_win(app, runtime_args: argparse.Namespace):
                 win32gui.PumpWaitingMessages()
                 self.msleep(10)
                 os_event.locked = False
+            logger.debug("Windows thread stopped")
 
+    def cleanup():
+        nonlocal running
+        if not running:
+            return
+        running = False
+        win_app.close()
+        brightify_app.close()
+        windows_thread.quit()
+        windows_thread.wait()
+    # connect cleanup to app exit
+    app.aboutToQuit.connect(cleanup)
+    atexit.register(cleanup)
     windows_thread = WindowsThread()
-    windows_thread.start()
-    ret_code = app.exec()
-    windows_thread.quit()
-    logger.info(f"Exiting with code {ret_code}")
-    exit(ret_code)
+    try:
+        windows_thread.start()
+        app.exec()
+    finally:
+        cleanup()
 
 
 def main_linux(app, runtime_args: argparse.Namespace):
@@ -69,22 +87,18 @@ def main_darwin(app, runtime_args: argparse.Namespace):
 def launch_python_backend(runtime_args: argparse.Namespace):
     from PyQt6.QtWidgets import QApplication
     app = QApplication(sys.argv)
-    try:
-        if host_os == "Windows":
-            logger.debug("Running on Windows")
-            main_win(app, runtime_args)
-        elif host_os == "Linux":
-            logger.debug("Running on Linux")
-            main_linux(app, runtime_args)
-        elif host_os == "Darwin":
-            logger.debug("Running on MacOS")
-            main_darwin(app, runtime_args)
-        else:
-            logger.error(f"Unsupported OS: {host_os}")
-            exit(1)
-    except KeyboardInterrupt:
-        logger.info("User interrupted the program, exiting...")
-        app.quit()
+    if host_os == "Windows":
+        logger.debug("Running on Windows")
+        main_win(app, runtime_args)
+    elif host_os == "Linux":
+        logger.debug("Running on Linux")
+        main_linux(app, runtime_args)
+    elif host_os == "Darwin":
+        logger.debug("Running on MacOS")
+        main_darwin(app, runtime_args)
+    else:
+        logger.error(f"Unsupported OS: {host_os}")
+        exit(1)
 
 
 def add_startup_task(runtime_args):
@@ -177,7 +191,8 @@ def main():
         with open(install_log, "a+") as f:
             f.write("Failed to configure logging\n")
             f.write(str(e) + "\n")
-    sys.excepthook = excepthook
+    # set global exception hook to the generic one
+    sys.excepthook = except_hook
 
     try:
         args = parse_args()
@@ -188,7 +203,6 @@ def main():
         logger.warning(f"Argument parsing failed at {e}")
         exit(1)
 
-    # Thanks to no fall-through in match-case, have fun reading this...
     if args.command == "add":
         if args.action in ["startup", "all"]:
             if args.use_scheduler:

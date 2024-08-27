@@ -79,4 +79,5 @@ class MonitorBase(ABC):
         return None
 
     def __del__(self):
-        pass
+        """ Clean up resources. Must be idempotent. """
+        logger.debug(f"Closing monitor {self.name()}. Type: {self.get_type()}")

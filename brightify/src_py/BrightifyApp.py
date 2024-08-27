@@ -3,7 +3,7 @@ import logging
 from typing import List, Literal, Optional, Tuple
 
 from PyQt6 import QtCore
-from PyQt6.QtCore import QPoint, Qt, QRect, QPropertyAnimation, QTimer, QThread
+from PyQt6.QtCore import QPoint, Qt, QRect, QPropertyAnimation, QTimer, QThread, QObject, pyqtSlot
 from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QApplication, QPushButton
 
@@ -16,6 +16,24 @@ from brightify.src_py.monitors.MonitorBase import MonitorBase
 
 # use global logger
 logger = logging.getLogger(app_name)
+
+
+class MonitorWorker(QObject):
+    """
+    Worker class to interact with monitors in a separate thread.
+    """
+    finished = QtCore.pyqtSignal()
+
+    @pyqtSlot(MonitorBase, int)
+    def set_brightness(self, monitor: MonitorBase, brightness: int):
+        monitor.set_brightness(brightness)
+        self.finished.emit()
+
+    @pyqtSlot(MonitorBase)
+    def get_brightness(self, monitor: MonitorBase):
+        brightness = monitor.get_brightness()
+        self.finished.emit()
+        return brightness
 
 
 class BrightifyApp(QMainWindow):
@@ -33,6 +51,7 @@ class BrightifyApp(QMainWindow):
 
         self.__init_ui()
         self.__init_sensor()
+        self.__init_monitor_worker()
         self.__init_os_event()
 
     def __init_ui(self):
@@ -48,6 +67,12 @@ class BrightifyApp(QMainWindow):
 
         self.fade_down_animation = QPropertyAnimation(self, b"geometry")
         self.fade_down_animation.finished.connect(self.__deactivate)
+
+    def __init_monitor_worker(self):
+        self.monitor_worker = MonitorWorker()
+        self.monitor_thread = QThread()
+        self.monitor_worker.moveToThread(self.monitor_thread)
+        self.monitor_thread.start()
 
     def __init_sensor(self):
         """Initialize the sensor communication and related threads."""
@@ -206,6 +231,13 @@ class BrightifyApp(QMainWindow):
         self.__update_position()
         self.__handle_force_redraw()
         self.__handle_last_click()
+        self.__handle_exit_request()
+
+    def __handle_exit_request(self):
+        """Handle an exit request based on the OS event. Does not return."""
+        if self.__os_event.exit_requested:
+            logger.debug("Exit from OS requested")
+            raise KeyboardInterrupt
 
     def __update_theme(self):
         """Update the theme based on the OS event."""
@@ -332,7 +364,12 @@ class BrightifyApp(QMainWindow):
 
         row.slider.setValue(initial_brightness)
         row.slider.valueChanged.emit(initial_brightness)
-        row.slider.valueChanged.connect(lambda value: monitor.set_brightness(value, blocking=True))
+        row.slider.sliderReleased.emit()
+
+        def set_brightness(value):
+            self.monitor_worker.set_brightness(monitor, value)
+
+        row.slider.valueChanged.connect(set_brightness)
         row.monitor = monitor
         return True
 
@@ -366,3 +403,25 @@ class BrightifyApp(QMainWindow):
     def __deactivate(self):
         """Deactivate the window."""
         self.hide()
+
+    def close(self):
+        """Handle the close event."""
+        if self.__sensor_timer.isActive():
+            self.__sensor_timer.stop()
+
+        self.__sensor_comm.close()
+        self.clear_rows()  # also calls __del__ on each monitor
+
+        if self.__sensor_thread.isRunning():
+            self.__sensor_thread.quit()
+            self.__sensor_thread.wait()
+
+        if self.monitor_thread.isRunning():
+            self.monitor_thread.quit()
+            self.monitor_thread.wait()
+
+        if self.is_os_managed():
+            if self.__os_update_timer.isActive():
+                self.__os_update_timer.stop()
+
+        logger.debug("Closed BrightifyApp")

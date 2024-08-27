@@ -1,4 +1,3 @@
-import atexit
 import dataclasses
 import logging
 import time
@@ -47,7 +46,6 @@ class SensorComm(QObject):
     def __post_init__(self):
         super().__init__()
         self.update_signal.connect(self.update)
-        atexit.register(self.__del__)
 
     def get_measurement(self) -> Optional[int]:
         """
@@ -67,7 +65,7 @@ class SensorComm(QObject):
         if self.ser and self.ser.is_open:
             try:
                 self.ser.close()
-                logger.info("Closed serial connection")
+                logger.debug("Closed serial connection")
             except serial.SerialException as e:
                 logger.error(f"Error closing serial connection: {e}")
         self.ser = None
@@ -96,7 +94,6 @@ class SensorComm(QObject):
         if not self.has_serial():
             self.__cleanup()
             return
-
         self.is_reading = True
         try:
             if (reading := self.get_measurement()) is not None:
@@ -114,7 +111,7 @@ class SensorComm(QObject):
                 pass
         return False
 
-    def __del__(self):
+    def close(self):
         if self.has_serial():
             while self.is_reading:
                 time.sleep(0.1)

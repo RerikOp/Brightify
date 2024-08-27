@@ -133,6 +133,7 @@ def start_logging():
         if queue_handler is not None and hasattr(queue_handler, "listener"):
             queue_handler.listener.start()
             atexit.register(queue_handler.listener.stop)
+    atexit.register(logging.shutdown)
 
 
 def configure_logging():

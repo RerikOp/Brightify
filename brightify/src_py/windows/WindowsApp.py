@@ -1,8 +1,6 @@
-from PyQt6.QtWidgets import QApplication
 from brightify.src_py.windows.helpers import get_theme
 from brightify import host_os, app_name, OSEvent
 import logging
-import atexit
 import ctypes
 
 if host_os != "Windows":
@@ -68,13 +66,12 @@ class WindowsApp:
         # maps command strings to ids and ids to functions that should be invoked when called
         self.cmd_id_map = {
             "Exit": 1025,
-            1025: lambda: win32gui.DestroyWindow(self.hwnd)
+            1025: self.close
         }
         self.os_event = os_event
         self.primary_click = win32con.VK_LBUTTON
 
         self._on_restart()
-        atexit.register(self.exit)
 
     def _window_class(self):
         # Configuration for the window
@@ -91,8 +88,7 @@ class WindowsApp:
         import win32gui
         nid = (self.hwnd, 0)
         win32gui.Shell_NotifyIcon(win32gui.NIM_DELETE, nid)
-        win32gui.PostQuitMessage(0)  # Terminate the app
-        QApplication.exit(0)
+        self.os_event.exit_requested = True
         return 0
 
     def _on_restart(self, hwnd=None, msg=None, wparam=None, lparam=None):
@@ -109,10 +105,12 @@ class WindowsApp:
 
     def _on_command(self, hwnd=None, msg=None, wparam=None, lparam=None):
         cmd = win32api.LOWORD(wparam)
-        if cmd in self.cmd_id_map:
-            # invoke corresponding function
-            self.cmd_id_map[cmd]()
-        return 0
+        try:
+            if cmd in self.cmd_id_map:
+                # invoke corresponding function
+                self.cmd_id_map[cmd]()
+        finally:
+            return 0
 
     def _on_icon_notify(self, hwnd=None, msg=None, wparam=None, lparam=None):
         if lparam == win32con.WM_LBUTTONUP:
@@ -147,10 +145,13 @@ class WindowsApp:
         except win32gui.error:
             logger.debug("Failed to add the icon to the system tray, it may already be there")
 
-    def exit(self):
-        exit_id = self.cmd_id_map["Exit"]
+    def close(self):
+        """Idempotent function to destroy the window."""
         try:  # invoke the exit function
-            self.cmd_id_map[exit_id]()
+            if hasattr(self, "hwnd"):
+                win32gui.DestroyWindow(self.hwnd)
+                logger.debug("Exiting windows app")
+                del self.hwnd
         except pywintypes.error as e:
-            if e.winerror != 1400:  # ERROR_INVALID_WINDOW_HANDLE
+            if e.winerror != 1400:  # ERROR_INVALID_WINDOW_HANDLE - already destroyed
                 raise e

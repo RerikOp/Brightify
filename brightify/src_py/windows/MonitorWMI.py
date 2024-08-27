@@ -24,7 +24,7 @@ class WMIMonitor(MonitorBase):
             self.__set_brightness = lambda value: self.wmi.WmiMonitorBrightnessMethods()[0].WmiSetBrightness(value, 0)
             self.__get_brightness = lambda: self.wmi.WmiMonitorBrightness()[0].CurrentBrightness
         except wmi.x_wmi as _:
-            logger.error("Internal monitor not found.")
+            logger.error("Internal monitor not found. Use has_wmi_monitor() to check if it is available.")
             return
 
     @staticmethod
@@ -39,3 +39,6 @@ class WMIMonitor(MonitorBase):
 
     def name(self):
         return "Internal"
+
+    def __del__(self):
+        super().__del__()

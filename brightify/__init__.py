@@ -28,6 +28,7 @@ class OSEvent:
     bottom_right: Optional[Tuple[int, int]] = None  # the bottom right corner of the app
     last_click: Optional[Tuple[int, int]] = None  # the last click position
     click_on_icon: bool = False  # last_click was on the icon
+    exit_requested: bool = False  # the user requested to exit the app
 
 
 def parse_args() -> argparse.Namespace | None:

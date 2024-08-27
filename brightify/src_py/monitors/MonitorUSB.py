@@ -4,7 +4,6 @@ from abc import abstractmethod
 from typing import Optional
 
 import usb1
-import atexit
 
 from brightify.src_py.monitors.MonitorBase import MonitorBase
 from brightify.src_py.monitors.MonitorBase import logger
@@ -22,8 +21,6 @@ class MonitorUSB(MonitorBase):
                 logger.warning("The device passed is not this monitor!")
 
             super().__init__()
-            # make sure the device is closed on exit
-            atexit.register(self.__del__)
             self.__device = device
             self.__has_delay = usb_delay_ms is not None
 
@@ -113,9 +110,7 @@ class MonitorUSB(MonitorBase):
         """
         try:
             if self.__device is not None:
-                logger.info(f"Closing monitor {self.name()}")
                 self.__device.close()
-                self.__device = None
                 super().__del__()
         except Exception as e:
             logger.error(f"Error during cleanup: {e}", exc_info=True)
