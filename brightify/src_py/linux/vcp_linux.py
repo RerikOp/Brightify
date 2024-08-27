@@ -36,6 +36,20 @@ GET_VCP_RESULT_CODES = {
     1: "Unsupported VCP code",
 }
 
+
+def secure_unpack(fmt: str, data: bytes) -> Tuple:
+    """
+    Securely unpacks data using the given format, catching struct.error.
+    :param fmt: Format string.
+    :param data: Data to unpack.
+    :return: Unpacked data as a tuple.
+    :raises VCPIOError: If unpacking fails.
+    """
+    try:
+        return struct.unpack(fmt, data)
+    except struct.error as e:
+        raise VCPIOError(f"Failed to unpack data: {e}") from e
+
 class LinuxVCP(VCP):
     """
     Linux API access to a monitor's virtual control panel.
@@ -187,7 +201,8 @@ class LinuxVCP(VCP):
         header, payload = self._read_response()
         self._validate_response(header, payload, GET_VCP_REPLY, code)
 
-        reply_code, result_code, vcp_opcode, vcp_type_code, feature_max, feature_current = struct.unpack(">BBBBHH", payload)
+        reply_code, result_code, vcp_opcode, vcp_type_code, feature_max, feature_current =\
+            secure_unpack(">BBBBHH", payload)
 
         if result_code > 0:
             message = GET_VCP_RESULT_CODES.get(result_code, f"Received result with unknown code: {result_code}")
@@ -217,7 +232,8 @@ class LinuxVCP(VCP):
             header, payload = self._read_response()
             self._validate_response(header, payload, GET_VCP_CAPS_REPLY)
 
-            offset, payload = struct.unpack(f">H{len(payload) - 2}s", payload)
+            offset, payload = secure_unpack(f">H{len(payload) - 2}s", payload)
+
             if len(payload) > 0:
                 caps_str += payload.decode("ascii")
             else:
@@ -226,6 +242,7 @@ class LinuxVCP(VCP):
         else:
             raise VCPIOError("Capabilities string incomplete or too long")
         return caps_str
+
 
     @staticmethod
     def get_checksum(data: bytearray) -> int:
@@ -239,6 +256,35 @@ class LinuxVCP(VCP):
         for data_byte in data:
             checksum ^= data_byte
         return checksum
+
+    def read_null_message(self) -> bytes:
+        """
+        Reads a NULL message from the display at the 0x6F I2C slave address.
+        :return: The response from the display.
+        :raises VCPIOError: If unable to read from the I2C bus.
+        """
+        if not self.in_context:
+            raise VCPError("Not in VCP context")
+
+        self.wait()
+
+        # Prepare the NULL message data packet
+        data = bytearray()
+        data.append(0x80)  # Length byte with protocol flag
+        data.insert(0, 0x6E)  # Source address
+        data.insert(0, 0x6F)  # Destination address
+        data.append(self.get_checksum(data))  # Checksum
+
+        # Write the data packet to the I2C bus
+        self.write_bytes(data)
+
+        # Read the response from the I2C bus
+        try:
+            response = self.read_bytes(4)  # Adjust the number of bytes as needed
+        except OSError as e:
+            raise VCPIOError("Unable to read from I2C bus") from e
+
+        return response
 
     def read_bytes(self, num_bytes: int) -> bytes:
         """
@@ -287,7 +333,8 @@ class LinuxVCP(VCP):
         :raises VCPIOError: Failed to read response.
         """
         header = self.read_bytes(GET_VCP_HEADER_LENGTH)
-        source, length = struct.unpack("=BB", header)
+        source, length = secure_unpack("=BB", header)
+
         length &= ~PROTOCOL_FLAG
         payload = self.read_bytes(length + 1)
         return header, payload
@@ -301,14 +348,15 @@ class LinuxVCP(VCP):
         :param expected_opcode: Expected opcode (if any).
         :raises VCPIOError: Validation failed.
         """
-        payload, checksum = struct.unpack(f"={len(payload) - 1}sB", payload)
+        payload, checksum = secure_unpack(f"={len(payload) - 1}sB", payload)
+
         calculated_checksum = self.get_checksum(header + payload)
         checksum_xor = checksum ^ calculated_checksum
         if checksum_xor:
             if self.checksum_errors == "strict":
                 raise VCPIOError(f"Checksum does not match: {checksum_xor}")
 
-        reply_code, result_code, vcp_opcode, vcp_type_code = struct.unpack(">BBBB", payload[:4])
+        reply_code, result_code, vcp_opcode, vcp_type_code = secure_unpack(">BBBB", payload[:4])
 
         if reply_code != expected_reply_code:
             raise VCPIOError(f"Received unexpected response code: {reply_code}")
@@ -327,7 +375,7 @@ def get_vcps() -> List[LinuxVCP]:
         vcp = LinuxVCP(device.sys_number)
         try:
             with vcp:
-                pass
+                print(vcp.read_null_message())
         except (OSError, VCPIOError):
             pass
         except VCPPermissionError:
