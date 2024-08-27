@@ -330,8 +330,8 @@ class BrightifyApp(QMainWindow):
             logger.warning(f"Failed to get initial brightness of monitor {monitor.name()}. Skipping it.")
             return False
 
+        row.slider.setValue(initial_brightness)
         row.slider.valueChanged.emit(initial_brightness)
-        # TODO make async
         row.slider.valueChanged.connect(lambda value: monitor.set_brightness(value, blocking=True))
         row.monitor = monitor
         return True
