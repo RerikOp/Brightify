@@ -2,6 +2,7 @@ import argparse
 import platform
 from pathlib import Path
 from typing import Literal, Tuple, Optional
+from importlib.metadata import version, PackageNotFoundError
 
 app_name: str = str(__package__).capitalize()
 
@@ -19,6 +20,11 @@ log_dir: Path = brightify_dir / "logs"
 icon_light: Path = res_dir / "icon_light.ico"
 icon_dark: Path = res_dir / "icon_dark.ico"
 
+__version__ = "Unknown"
+try:
+    __version__ = version(app_name)
+except PackageNotFoundError as _:
+    pass
 
 # Events that can be emitted by the operating system
 class OSEvent:
@@ -37,8 +43,17 @@ def parse_args() -> argparse.Namespace | None:
             _s.add_argument(_arg_name, **_d)
 
     # Exit on error does not catch unknown arguments (https://github.com/python/cpython/issues/103498)
-    parser = argparse.ArgumentParser(description=app_name, exit_on_error=False)
-    subparsers = parser.add_subparsers(dest="command", help="The command to run. Defaults to 'run' if not specified.")
+    parser = argparse.ArgumentParser(prog="brightify",
+                                     description=f"Brightify - A tool for managing screen brightness. Version: {__version__}",
+                                     exit_on_error=False, add_help=True)
+
+    # Verbosity:
+    parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose logging.")
+    parser.add_argument("--version", action="store_true", help="Print the version and exit.")
+    parser.add_argument("-q", "--quiet", action="store_true", help="Disable logging.")
+
+
+    subparsers = parser.add_subparsers(dest="command", help="The command to run.")
 
     # python -m brightify run
     run_parser = subparsers.add_parser("run",

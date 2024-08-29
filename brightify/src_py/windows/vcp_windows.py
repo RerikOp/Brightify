@@ -1,13 +1,9 @@
-import logging
 from types import TracebackType
 from typing import List, Optional, Tuple, Type
 import ctypes
 from ctypes.wintypes import DWORD, RECT, BOOL, HMONITOR, HDC, LPARAM, HANDLE, BYTE, WCHAR
 
 from brightify.src_py.monitors.vpc import VCP, VCPError
-
-# Use OS specific logger
-logger = logging.getLogger("Windows")
 
 
 class PhysicalMonitor(ctypes.Structure):
@@ -107,7 +103,7 @@ class WindowsVCP(VCP):
 
 def get_vcps() -> List[WindowsVCP]:
     """ Return a list of VCPs for all monitors. Searches for the corresponding monitor name and populates the VCPs. """
-    from brightify.src_py.windows.find_name_windows import display_to_handle_and_f_name_mapping
+    from brightify.src_py.windows.helpers import display_to_handle_and_f_name_mapping
     mapping = display_to_handle_and_f_name_mapping()
     vcps = []
     hmonitors = []

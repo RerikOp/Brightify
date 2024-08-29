@@ -3,7 +3,7 @@ import logging
 from typing import List, Literal, Optional, Tuple
 
 from PyQt6 import QtCore
-from PyQt6.QtCore import QPoint, Qt, QRect, QPropertyAnimation, QTimer, QThread, QObject, pyqtSlot
+from PyQt6.QtCore import QPoint, Qt, QRect, QPropertyAnimation, QTimer, QThread, QObject, pyqtSlot, pyqtSignal
 from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QApplication, QPushButton
 
@@ -22,18 +22,35 @@ class MonitorWorker(QObject):
     """
     Worker class to interact with monitors in a separate thread.
     """
-    finished = QtCore.pyqtSignal()
+    finished_signal = pyqtSignal()
+    get_brightness_signal = pyqtSignal(MonitorBase)  # Expecting a MonitorBase object
+    set_brightness_signal = pyqtSignal(MonitorBase, int)  # Expecting a MonitorBase object and an int
+    opt_init_signal = pyqtSignal(object)  # Expecting a MonitorBase object
+
+    def __init__(self):
+        super().__init__()
+        # Connect signals to slots
+        self.get_brightness_signal.connect(self._get_brightness)
+        self.set_brightness_signal.connect(self._set_brightness)
+        self.opt_init_signal.connect(self.opt_init)
+
 
     @pyqtSlot(MonitorBase, int)
-    def set_brightness(self, monitor: MonitorBase, brightness: int):
-        monitor.set_brightness(brightness)
-        self.finished.emit()
+    def _set_brightness(self, monitor: MonitorBase, brightness: int):
+        monitor.set_brightness(brightness, blocking=True)
+        self.finished_signal.emit()
 
     @pyqtSlot(MonitorBase)
-    def get_brightness(self, monitor: MonitorBase):
+    def _get_brightness(self, monitor: MonitorBase):
         brightness = monitor.get_brightness()
-        self.finished.emit()
+        self.finished_signal.emit()
         return brightness
+
+    @pyqtSlot(MonitorBase)
+    def opt_init(self, monitor: List[MonitorBase]):
+        pass
+
+
 
 
 class BrightifyApp(QMainWindow):
@@ -49,9 +66,9 @@ class BrightifyApp(QMainWindow):
         self.__bottom_right: Optional[QPoint] = None
         self.__ui_config: UIConfig = UIConfig()
 
+        self.__init_monitor_worker()
         self.__init_ui()
         self.__init_sensor()
-        self.__init_monitor_worker()
         self.__init_os_event()
 
     def __init_ui(self):
@@ -359,7 +376,8 @@ class BrightifyApp(QMainWindow):
         """Connect a monitor to a row and return whether the connection was successful."""
         initial_brightness = monitor.get_brightness(force=True)
         if initial_brightness is None:
-            logger.warning(f"Failed to get initial brightness of monitor {monitor.name()}. Skipping it.")
+            # This should not happen, as we already checked for brightness in get_supported_monitors
+            logger.error(f"Failed to get initial brightness of monitor \"{monitor.name()}\"")
             return False
 
         row.slider.setValue(initial_brightness)
@@ -367,7 +385,7 @@ class BrightifyApp(QMainWindow):
         row.slider.sliderReleased.emit()
 
         def set_brightness(value):
-            self.monitor_worker.set_brightness(monitor, value)
+            self.monitor_worker.set_brightness_signal.emit(monitor, value)
 
         row.slider.valueChanged.connect(set_brightness)
         row.monitor = monitor

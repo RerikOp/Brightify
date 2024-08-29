@@ -5,11 +5,11 @@ import winshell
 import sys
 from pathlib import Path
 
-from brightify import app_name, icon_light, icon_dark
-from brightify.src_py.windows.helpers import get_mode
+from brightify import app_name
+from brightify.src_py.windows.helpers import exec_path, run_call, add_icon
 
 
-def elevated_add_startup_task(runtime_args):
+def add_startup_task(runtime_args):
     from brightify.src_py.windows import add_startup_task
     args = ["--task-name", app_name,
             "--path", f"\"{exec_path(runtime_args)}\"",
@@ -23,7 +23,7 @@ def elevated_add_startup_task(runtime_args):
                                         1)  # show window
 
 
-def elevated_remove_startup_task():
+def remove_startup_task():
     from brightify.src_py.windows import remove_startup_task
     args = ["--task-name", app_name]
     # run the script as admin
@@ -33,30 +33,6 @@ def elevated_remove_startup_task():
                                         f'"{remove_startup_task.__file__}" {" ".join(args)}',  # script to run
                                         None,  # working directory
                                         1)  # show window
-
-
-def exec_path(runtime_args: argparse.Namespace):
-    return sys.executable.replace("python.exe", "pythonw.exe") if not runtime_args.force_console else sys.executable
-
-
-def run_call(runtime_args: argparse.Namespace):
-    force_console = " --force-console" if runtime_args.force_console else ""
-    no_animations = " --no-animations" if runtime_args.no_animations else ""
-    return f"-m brightify run{force_console}{no_animations}"
-
-
-def add_icon(runtime_args: argparse.Namespace, directory):
-    # create a shortcut in the directory folder
-    Path(directory).mkdir(parents=True, exist_ok=True)
-    shortcut_path = Path(directory) / f"{app_name}.lnk"
-    with winshell.shortcut(str(shortcut_path)) as shortcut:
-        shortcut: winshell.Shortcut
-        shortcut.path = exec_path(runtime_args)
-        shortcut.arguments = run_call(runtime_args)
-        shortcut.description = f"Startup link for {app_name}"
-        icon_path = icon_light if get_mode() == "dark" else icon_dark
-        if icon_path.exists():
-            shortcut.icon_location = (str(icon_path), 0)
 
 
 def add_menu_icon(runtime_args: argparse.Namespace):
@@ -76,8 +52,58 @@ def add_startup_icon(runtime_args: argparse.Namespace):
     add_icon(runtime_args, startup_folder)
 
 
-def remove_startup_folder():
+def remove_startup_icon():
     startup_folder = winshell.startup()
     shortcut_path = Path(startup_folder) / f"{app_name}.lnk"
     if shortcut_path.exists():
         os.remove(shortcut_path)
+
+
+def run(app, runtime_args):
+    import ctypes
+    import win32gui
+    import logging
+    from brightify import OSEvent
+    from brightify.src_py.BrightifyApp import BrightifyApp
+    from brightify.src_py.windows.WindowsApp import WindowsApp
+    from PyQt6.QtCore import QThread, Qt
+
+    os_event = OSEvent()
+    brightify_app = BrightifyApp(os_event, runtime_args, window_type=Qt.WindowType.Tool)
+    win_app = WindowsApp(os_event)
+    running = True
+    logger = logging.getLogger("Windows")
+
+    class WindowsThread(QThread):
+        def run(self):
+            already_handled = False
+            while running:
+                l_button_down = ctypes.windll.user32.GetAsyncKeyState(win_app.primary_click) & 0x8000 != 0
+                if l_button_down and not already_handled:
+                    already_handled = True
+                elif not l_button_down and already_handled:
+                    os_event.locked = True
+                    already_handled = False
+                    os_event.last_click = win32gui.GetCursorPos()
+                win32gui.PumpWaitingMessages()
+                self.msleep(10)
+                os_event.locked = False
+            logger.debug("Windows thread stopped")
+
+    def cleanup():
+        nonlocal running
+        if not running:
+            return
+        running = False
+        win_app.close()
+        brightify_app.close()
+        windows_thread.quit()
+        windows_thread.wait()
+
+    app.aboutToQuit.connect(cleanup)
+    windows_thread = WindowsThread()
+    try:
+        windows_thread.start()
+        app.exec()
+    finally:
+        cleanup()

@@ -136,7 +136,7 @@ def start_logging():
     atexit.register(logging.shutdown)
 
 
-def configure_logging():
+def configure_logging(verbose: bool = False, quiet: bool = False):
     import tomllib as toml
     # make sure logs dir exists
     log_dir.mkdir(parents=True, exist_ok=True)
@@ -144,3 +144,11 @@ def configure_logging():
         config = toml.load(f)
     modify_log_config(config)
     logging.config.dictConfig(config)
+    if verbose and quiet:
+        return # don't change the log level if both verbose and quiet are set
+    if verbose:
+        logging.getLogger().setLevel(logging.DEBUG)
+    elif quiet:
+        logging.getLogger().setLevel(logging.ERROR + 1)
+    else:
+        logging.getLogger().setLevel(logging.INFO)

@@ -1,5 +1,4 @@
 import fcntl
-import logging
 import os
 import struct
 import time
@@ -7,8 +6,7 @@ import pyudev
 from types import TracebackType
 from typing import List, Optional, Tuple, Type, Literal
 from brightify.src_py.monitors.vpc import VCP, VCPIOError, VCPPermissionError, VCPError
-
-logger = logging.getLogger("Linux")
+from brightify.src_py.linux import logger
 
 # Constants
 GET_VCP_HEADER_LENGTH = 2  # Header packet length
@@ -384,7 +382,3 @@ def get_vcps() -> List[LinuxVCP]:
             logger.debug(f"Found DDC-CI device at {vcp.fp}")
             vcps.append(vcp)
     return vcps
-
-
-if __name__ == '__main__':
-    get_vcps()

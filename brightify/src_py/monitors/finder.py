@@ -74,14 +74,15 @@ def _ddcci_monitors() -> List[MonitorDDCCI]:
             if m_impl.is_unknown():
                 logger.debug(f"Found unknown DDCCI Monitor. Trying to force name from VCP capabilities")
                 m_impl.update_cap(force=True)
-            if m_impl.is_unknown():
+            if m_impl.is_unknown(): # still unknown
                 logger.info(f"Found unknown DDCCI Monitor")
-            m_impl.get_brightness(force=True)
-            impls.append(m_impl)
-        except VCPError as e:
-            logger.error(f"Failed to connect to DDCCI monitor: {e}", exc_info=True)
+            if m_impl.get_brightness(force=True) is not None:
+                impls.append(m_impl)
+            else:
+                logger.info(f"Failed to connect to DDCCI monitor \"{m_impl.name()}\". Skipping")
+                continue
         except Exception as e:
-            logger.error(f"Failed to get brightness of DDCCI monitor \"{m_impl.name()}\": {e}", exc_info=True)
+            logger.error(f"Unexpected error: {e}", exc_info=True)
     return impls
 
 
@@ -116,4 +117,6 @@ def get_supported_monitors() -> List[MonitorBase]:
     if (diff := len(all_ddcci_monitors) - len(ddcci_monitors)) > 0:
         logger.debug(f"Removed {diff} DDCCI monitor(s) already connected via USB")
 
-    return usb_monitors + ddcci_monitors + internal_monitors
+    monitors = usb_monitors + ddcci_monitors + internal_monitors
+    logger.info(f"Found {len(monitors)} monitor(s) in total")
+    return monitors
