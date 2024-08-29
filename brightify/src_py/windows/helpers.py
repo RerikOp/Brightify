@@ -1,6 +1,5 @@
 import argparse
 import ctypes
-import logging
 import sys
 from ctypes import wintypes
 from pathlib import Path
@@ -10,10 +9,44 @@ import winshell
 import winreg
 from brightify import icon_light, app_name, icon_dark
 from brightify.src_py.ui_config import Theme
+from brightify.src_py.windows import logger
 from ctypes.wintypes import DWORD, WCHAR, HMONITOR, BOOL, HDC, RECT, LPARAM, CHAR
 from typing import Optional, Dict
 
 import wmi
+
+
+# HELPER FUNCTIONS FOR ACTIONS:
+def exec_path(runtime_args: argparse.Namespace):
+    return sys.executable.replace("python.exe", "pythonw.exe") if not runtime_args.force_console else sys.executable
+
+
+def run_call(runtime_args: argparse.Namespace):
+    # only store true and choices are supported
+    force_console = " --force-console" if runtime_args.force_console else ""
+    no_animations = " --no-animations" if runtime_args.no_animations else ""
+    verbose = " --verbose" if runtime_args.verbose else ""
+    quiet = " --quiet" if runtime_args.quiet else ""
+    backend = f" --backend={runtime_args.backend}" if runtime_args.backend else ""
+    return f"-m brightify run{force_console}{no_animations}{verbose}{quiet}{backend}"
+
+
+def add_icon(runtime_args: argparse.Namespace, directory):
+    # create a shortcut in the directory folder
+    Path(directory).mkdir(parents=True, exist_ok=True)
+    shortcut_path = Path(directory) / f"{app_name}.lnk"
+    with winshell.shortcut(str(shortcut_path)) as shortcut:
+        shortcut: winshell.Shortcut
+        shortcut.path = exec_path(runtime_args)
+        shortcut.arguments = run_call(runtime_args)
+        shortcut.description = f"Startup link for {app_name}"
+        icon_path = icon_light if get_mode() == "dark" else icon_dark
+        if icon_path.exists():
+            shortcut.icon_location = (str(icon_path), 0)
+
+
+# HELPER FUNCTIONS FOR WINDOWS API:
+_DISPLAY_DEVICE_ACTIVE = 0x1
 
 
 class DISPLAY_DEVICE(ctypes.Structure):
@@ -35,36 +68,6 @@ class MONITORINFOEXA(ctypes.Structure):
         ("dwFlags", DWORD),
         ("szDevice", CHAR * 32)
     ]
-
-
-_DISPLAY_DEVICE_ACTIVE = 0x1
-
-# Use OS specific logger
-logger = logging.getLogger("Windows")
-
-
-def exec_path(runtime_args: argparse.Namespace):
-    return sys.executable.replace("python.exe", "pythonw.exe") if not runtime_args.force_console else sys.executable
-
-
-def run_call(runtime_args: argparse.Namespace):
-    force_console = " --force-console" if runtime_args.force_console else ""
-    no_animations = " --no-animations" if runtime_args.no_animations else ""
-    return f"-m brightify run{force_console}{no_animations}"
-
-
-def add_icon(runtime_args: argparse.Namespace, directory):
-    # create a shortcut in the directory folder
-    Path(directory).mkdir(parents=True, exist_ok=True)
-    shortcut_path = Path(directory) / f"{app_name}.lnk"
-    with winshell.shortcut(str(shortcut_path)) as shortcut:
-        shortcut: winshell.Shortcut
-        shortcut.path = exec_path(runtime_args)
-        shortcut.arguments = run_call(runtime_args)
-        shortcut.description = f"Startup link for {app_name}"
-        icon_path = icon_light if get_mode() == "dark" else icon_dark
-        if icon_path.exists():
-            shortcut.icon_location = (str(icon_path), 0)
 
 
 def get_registry_key(sub_key: str, name: str, root_key=winreg.HKEY_CURRENT_USER):

@@ -157,8 +157,8 @@ class BrightifyApp(QMainWindow):
         logger.debug(f"Setting state to {new_state} (with animations)")
         up = self.__up_geometry()
         down = self.__down_geometry()
-        self.__activate()  # Ensure the window is visible before starting the animation
         if new_state == "show":
+            self.__activate()
             self.ui_config.config_fade_animation(self.fade_up_animation, down, up)
             self.fade_up_animation.start()
         else:

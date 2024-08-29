@@ -4,9 +4,8 @@ import argparse
 from pathlib import Path
 
 from PyQt6.QtWidgets import QApplication
-
-from brightify import app_name, host_os, brightify_dir, parse_args, __version__
-from brightify.brightify_log import configure_logging, start_logging
+from brightify import app_name, host_os, brightify_dir, __version__, get_parser
+from brightify.brightify_log import configure_logging, start_logging, init_logging
 
 # use global logger
 logger = logging.getLogger(app_name)
@@ -78,18 +77,21 @@ def main():
     install_log = brightify_dir / "logs" / "install.log"
     Path(install_log).parent.mkdir(parents=True, exist_ok=True)
     try:
-        args = parse_args()
-    except argparse.ArgumentError as e:
-        logger.warning(f"Argument parsing failed at {e}")
-        exit(1)
-
-    try:
-        configure_logging(args.verbose, args.quiet)
+        init_logging()
         start_logging()
     except Exception as e:
         with open(install_log, "a+") as f:
             f.write("Failed to configure logging\n")
             f.write(str(e) + "\n")
+
+    try:
+        parser = get_parser()
+        args, _ = parser.parse_known_args()
+    except argparse.ArgumentError as e:
+        logger.warning(f"Argument parsing failed at {e}")
+        exit(1)
+    configure_logging(args.verbose, args.quiet)
+
     # set global exception hook to the generic one
     sys.excepthook = except_hook
 

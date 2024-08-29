@@ -127,6 +127,16 @@ def modify_log_config(config: dict):
             config["handlers"][handler]["filename"] = str(abs_path)
 
 
+def init_logging():
+    import tomllib as toml
+    # make sure logs dir exists
+    log_dir.mkdir(parents=True, exist_ok=True)
+    with open(res_dir / "log_config.toml", "rb") as f:
+        config = toml.load(f)
+    modify_log_config(config)
+    logging.config.dictConfig(config)
+
+
 def start_logging():
     if (3, 12) <= sys.version_info:
         queue_handler = logging.getHandlerByName("queue_handler")
@@ -137,15 +147,8 @@ def start_logging():
 
 
 def configure_logging(verbose: bool = False, quiet: bool = False):
-    import tomllib as toml
-    # make sure logs dir exists
-    log_dir.mkdir(parents=True, exist_ok=True)
-    with open(res_dir / "log_config.toml", "rb") as f:
-        config = toml.load(f)
-    modify_log_config(config)
-    logging.config.dictConfig(config)
     if verbose and quiet:
-        return # don't change the log level if both verbose and quiet are set
+        return  # don't change the log level if both verbose and quiet are set
     if verbose:
         logging.getLogger().setLevel(logging.DEBUG)
     elif quiet:
