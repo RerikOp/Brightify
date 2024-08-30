@@ -1,6 +1,6 @@
 import argparse
 import logging
-from typing import List, Literal, Optional, Tuple
+from typing import List, Literal, Optional, Tuple, Dict
 
 from PyQt6 import QtCore
 from PyQt6.QtCore import QPoint, Qt, QRect, QPropertyAnimation, QTimer, QThread, QObject, pyqtSlot, pyqtSignal, QTime
@@ -22,50 +22,26 @@ class MonitorWorker(QObject):
     """
     Worker class to interact with monitors in a separate thread.
     """
-    set_and_update_sig = pyqtSignal(MonitorRow, int, bool)
-    opt_init_signal = pyqtSignal(object)  # Expecting a MonitorBase object
-    sync_interval = 10  # Sync UI every 10 sets
-    max_delta = 10 # Difference between UI and Monitor brightness
+    update_signal = pyqtSignal(MonitorRow, bool)
 
     def __init__(self):
         super().__init__()
         # Connect signals to slots
-        self.set_and_update_sig.connect(self._set_and_update)
-        self.opt_init_signal.connect(self.opt_init)
-        self.num_sets = {}
+        self.update_signal.connect(self._update)
+        self.__request_store: Dict[MonitorBase, Optional[int]] = {}
 
-    def __sync_ui(self, row: MonitorRow, force_sync: bool):
-        monitor = row.monitor
-        row.sync(monitor.last_set_brightness)
-        if monitor not in self.num_sets:
-            self.num_sets[monitor] = 0
-            return
-        if not force_sync and self.num_sets[monitor] < self.sync_interval:
-            self.num_sets[monitor] += 1
-            return
-        # Reset the counter and get the brightness from the monitor
-        self.num_sets[monitor] = 0
-        brightness = monitor.get_brightness(force=True)
-        if brightness is None:
-            logger.error(f"Failed to get brightness of monitor \"{monitor.name()}\"")
-            return
-        delta = abs(row.monitor.last_get_brightness - monitor.last_set_brightness)
-        if delta > self.max_delta:
-            logger.debug(f"UI for \"{monitor.name()}\" was set to {monitor.last_set_brightness}, "
-                         f"but got {row.monitor.last_get_brightness} from Monitor.")
-        row.sync(row.monitor.last_get_brightness)
+    def request_change(self, monitor: MonitorBase, brightness: int):
+        self.__request_store[monitor] = brightness # Store the request. Overwrite if already exists
 
-    @pyqtSlot(MonitorRow, int, bool)
-    def _set_and_update(self, row: MonitorRow, brightness: int, force_sync: bool):
+    @pyqtSlot(MonitorRow, bool)
+    def _update(self, row: MonitorRow, force_sync: bool):
         monitor = row.monitor
         if monitor is None:
             return
-        monitor.set_brightness(brightness, blocking=True)
-        self.__sync_ui(row, force_sync)
-
-    @pyqtSlot(MonitorBase)
-    def opt_init(self, monitor: List[MonitorBase]):
-        pass
+        # Set the brightness of the monitor with the latest request
+        if monitor in self.__request_store and (brightness := self.__request_store[monitor]) is not None:
+            self.__request_store[monitor] = None
+            monitor.set_brightness(brightness, blocking=True)
 
 
 class BrightifyApp(QMainWindow):
@@ -154,6 +130,32 @@ class BrightifyApp(QMainWindow):
     def is_os_managed(self) -> bool:
         """Return whether the Brightify App is managed by the OS."""
         return self.__os_event is not None
+
+    def __set_and_notify(self, row: MonitorRow, value: int):
+        """Set the brightness of a monitor and notify the worker."""
+        row.slider.setValue(value)
+        row.slider.actionTriggered.emit(QAbstractSlider.SliderAction.SliderMove.value)
+
+    def __connect_monitor(self, row: MonitorRow, monitor: MonitorBase) -> bool:
+        """Connect a monitor to a row and return whether the connection was successful."""
+        monitor.last_get_brightness = monitor.last_get_brightness or monitor.get_brightness(force=True)
+        if monitor.last_get_brightness is None:
+            logger.error(f"Failed to get initial brightness of monitor \"{monitor.name()}\"")
+            return False
+        row.monitor = monitor
+        # Set the range of the slider
+        row.slider.setRange(monitor.min_brightness, monitor.max_brightness)
+
+        def handle_action(action: int):
+            value = row.slider.sliderPosition()
+            self.monitor_worker.request_change(monitor, value)
+            self.monitor_worker.update_signal.emit(row, False)
+            row.on_value_change(value)
+        row.slider.actionTriggered.connect(handle_action)
+
+        self.__set_and_notify(row, monitor.last_get_brightness)
+        return True
+
 
     def __determine_new_state(self, requested_state: Literal["show", "hide", "invert"]) -> Literal["show", "hide"]:
         """Determine the new state based on the current state and the requested state."""
@@ -259,7 +261,7 @@ class BrightifyApp(QMainWindow):
         row.slider.setEnabled(False)
         brightness = row.monitor.convert_sensor_readings(self.__sensor_comm.measurements)
         if brightness is not None:
-            row.slider.sliderReleased.emit(brightness)  # eventually is handled by the monitor worker
+            self.__set_and_notify(row, brightness)
 
     def __handle_os_update(self):
         """Handle updates from the OS event."""
@@ -382,35 +384,6 @@ class BrightifyApp(QMainWindow):
             row.name_label.setMinimumWidth(max_name_width + 5)
             row.type_label.setMinimumWidth(max_type_width + 5)
             row.show()
-
-    def __connect_monitor(self, row: MonitorRow, monitor: MonitorBase) -> bool:
-        """Connect a monitor to a row and return whether the connection was successful."""
-        monitor.last_get_brightness = monitor.last_get_brightness or monitor.get_brightness(force=True)
-        if monitor.last_get_brightness is None:
-            logger.error(f"Failed to get initial brightness of monitor \"{monitor.name()}\"")
-            return False
-        row.monitor = monitor
-        # Set the range of the slider
-        row.slider.setRange(monitor.min_brightness, monitor.max_brightness)
-
-        def handle_action(action: int):
-            if action in [QAbstractSlider.SliderAction.SliderMove.value]:
-                return
-            set_brightness()
-
-        def set_brightness():
-            value = row.slider.value()
-            self.monitor_worker.set_and_update_sig.emit(row, value, False)
-
-        # Change the brightness of the monitor when the slider is released
-        row.slider.sliderReleased.connect(set_brightness)
-        row.slider.actionTriggered.connect(handle_action) # Needed if slider moved by clicking on the scale
-
-        # Set the initial brightness
-        row.sync(monitor.last_get_brightness)
-        row.slider.setValue(monitor.last_get_brightness)
-
-        return True
 
     def __reinit_sensor(self):
         """Reinitialize the sensor if necessary."""

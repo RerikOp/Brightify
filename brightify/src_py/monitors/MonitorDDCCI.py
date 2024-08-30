@@ -13,7 +13,7 @@ class MonitorDDCCI(MonitorBase):
         super().__init__(0, 100)
         self.vcp = vcp
         self.luminance_code = VCPCodeDefinition.image_luminance
-        self.max_tries = 5
+        self.max_tries = 3
         self.code_max = {}
 
         if (name := self.vcp.name) is not None:
@@ -74,8 +74,8 @@ class MonitorDDCCI(MonitorBase):
             self.vcp.wait()
             self.vcp.set_vcp_feature(code.value, value)
             return True
-        except VCPError as e:
-            logger.debug(f"Error setting VCP feature: {e}")
+        except VCPError as _:
+            pass
         except Exception as e:
             logger.error(f"Unexpected error: {e}")
         return False
@@ -95,8 +95,8 @@ class MonitorDDCCI(MonitorBase):
             current, maximum = self.vcp.get_vcp_feature(code.value)
             self.code_max[code.value] = maximum
             return current
-        except VCPError as e:
-            logger.debug(f"Error getting VCP feature: {e}")
+        except VCPError as _:
+            pass
         except Exception as e:
             logger.error(f"Unexpected error: {e}")
         return None
@@ -152,9 +152,8 @@ class MonitorDDCCI(MonitorBase):
         """
         max_tries = 1 if not blocking and not force else self.max_tries
         brightness_values = []
-
-        with self.vcp:
-            for _ in range(max_tries):
+        for _ in range(max_tries):
+            with self.vcp:
                 if (brightness := self._get_vcp_feature(self.luminance_code)) is not None:
                     brightness_values.append(brightness)
                     if not force:
