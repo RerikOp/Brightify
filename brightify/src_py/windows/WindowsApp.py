@@ -81,7 +81,7 @@ class WindowsApp:
         return 0
 
     def _on_restart(self, hwnd=None, msg=None, wparam=None, lparam=None):
-        logger.debug("Taskbar restarted")
+        logger.debug("Restart requested by OS")
         theme = get_theme()
         self.os_event.theme = theme
         self.os_event.force_redraw = True

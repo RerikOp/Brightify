@@ -3,9 +3,9 @@ import logging
 from typing import List, Literal, Optional, Tuple
 
 from PyQt6 import QtCore
-from PyQt6.QtCore import QPoint, Qt, QRect, QPropertyAnimation, QTimer, QThread, QObject, pyqtSlot, pyqtSignal
+from PyQt6.QtCore import QPoint, Qt, QRect, QPropertyAnimation, QTimer, QThread, QObject, pyqtSlot, pyqtSignal, QTime
 from PyQt6.QtGui import QIcon
-from PyQt6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QApplication, QPushButton
+from PyQt6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QApplication, QPushButton, QAbstractSlider
 
 from brightify import app_name, OSEvent
 from brightify.src_py.SensorComm import SensorComm
@@ -22,35 +22,50 @@ class MonitorWorker(QObject):
     """
     Worker class to interact with monitors in a separate thread.
     """
-    finished_signal = pyqtSignal()
-    get_brightness_signal = pyqtSignal(MonitorBase)  # Expecting a MonitorBase object
-    set_brightness_signal = pyqtSignal(MonitorBase, int)  # Expecting a MonitorBase object and an int
+    set_and_update_sig = pyqtSignal(MonitorRow, int, bool)
     opt_init_signal = pyqtSignal(object)  # Expecting a MonitorBase object
+    sync_interval = 10  # Sync UI every 10 sets
+    max_delta = 10 # Difference between UI and Monitor brightness
 
     def __init__(self):
         super().__init__()
         # Connect signals to slots
-        self.get_brightness_signal.connect(self._get_brightness)
-        self.set_brightness_signal.connect(self._set_brightness)
+        self.set_and_update_sig.connect(self._set_and_update)
         self.opt_init_signal.connect(self.opt_init)
+        self.num_sets = {}
 
+    def __sync_ui(self, row: MonitorRow, force_sync: bool):
+        monitor = row.monitor
+        row.sync(monitor.last_set_brightness)
+        if monitor not in self.num_sets:
+            self.num_sets[monitor] = 0
+            return
+        if not force_sync and self.num_sets[monitor] < self.sync_interval:
+            self.num_sets[monitor] += 1
+            return
+        # Reset the counter and get the brightness from the monitor
+        self.num_sets[monitor] = 0
+        brightness = monitor.get_brightness(force=True)
+        if brightness is None:
+            logger.error(f"Failed to get brightness of monitor \"{monitor.name()}\"")
+            return
+        delta = abs(row.monitor.last_get_brightness - monitor.last_set_brightness)
+        if delta > self.max_delta:
+            logger.debug(f"UI for \"{monitor.name()}\" was set to {monitor.last_set_brightness}, "
+                         f"but got {row.monitor.last_get_brightness} from Monitor.")
+        row.sync(row.monitor.last_get_brightness)
 
-    @pyqtSlot(MonitorBase, int)
-    def _set_brightness(self, monitor: MonitorBase, brightness: int):
+    @pyqtSlot(MonitorRow, int, bool)
+    def _set_and_update(self, row: MonitorRow, brightness: int, force_sync: bool):
+        monitor = row.monitor
+        if monitor is None:
+            return
         monitor.set_brightness(brightness, blocking=True)
-        self.finished_signal.emit()
-
-    @pyqtSlot(MonitorBase)
-    def _get_brightness(self, monitor: MonitorBase):
-        brightness = monitor.get_brightness()
-        self.finished_signal.emit()
-        return brightness
+        self.__sync_ui(row, force_sync)
 
     @pyqtSlot(MonitorBase)
     def opt_init(self, monitor: List[MonitorBase]):
         pass
-
-
 
 
 class BrightifyApp(QMainWindow):
@@ -84,6 +99,9 @@ class BrightifyApp(QMainWindow):
 
         self.fade_down_animation = QPropertyAnimation(self, b"geometry")
         self.fade_down_animation.finished.connect(self.__deactivate)
+
+        # Store the time of the last change to the window (to prevent flickering)
+        self.__last_change = QTime.currentTime()
 
     def __init_monitor_worker(self):
         self.monitor_worker = MonitorWorker()
@@ -123,6 +141,11 @@ class BrightifyApp(QMainWindow):
         current_state = "hide" if self.isHidden() else "show"
         if new_state == current_state:
             return
+        else:
+            now = QTime.currentTime()
+            if self.__last_change is not None and self.__last_change.msecsTo(now) < 200:
+                return
+            self.__last_change = now
         if not self.ui_config.theme.has_animations:
             self.__toggle_visibility_immediate(new_state)
         elif not self.__is_animation_running():
@@ -173,6 +196,7 @@ class BrightifyApp(QMainWindow):
     @property
     def top_left(self) -> QPoint:
         """Return the top left corner of the window."""
+        # FIXME: Handle different orientations of the taskbar
         if self.__bottom_right is None:
             return self.default_position()
         min_size = self.minimumSizeHint()
@@ -232,18 +256,15 @@ class BrightifyApp(QMainWindow):
         if not row.is_auto_tick.isChecked():
             row.slider.setEnabled(True)
             return
-
         row.slider.setEnabled(False)
         brightness = row.monitor.convert_sensor_readings(self.__sensor_comm.measurements)
         if brightness is not None:
-            row.slider.setValue(brightness)
-            row.slider.sliderReleased.emit()
+            row.slider.sliderReleased.emit(brightness)  # eventually is handled by the monitor worker
 
     def __handle_os_update(self):
         """Handle updates from the OS event."""
         if self.__os_event.locked:
             return
-
         self.__update_theme()
         self.__update_position()
         self.__handle_force_redraw()
@@ -344,13 +365,10 @@ class BrightifyApp(QMainWindow):
 
         for monitor in monitors:
             row = MonitorRow(self.ui_config.theme, parent=self)
-            row.slider.setRange(monitor.min_brightness, monitor.max_brightness)
             row.name_label.setText(monitor.name())
-            self.__config_slider(row)
             if not self.__connect_monitor(row, monitor):
                 row.deleteLater()
                 continue
-
             self.rows.addWidget(row)
             self.monitor_rows.append(row)
             max_name_width = max(max_name_width, row.name_label.minimumSizeHint().width())
@@ -365,30 +383,33 @@ class BrightifyApp(QMainWindow):
             row.type_label.setMinimumWidth(max_type_width + 5)
             row.show()
 
-    def __config_slider(self, row: MonitorRow):
-        """Configure the slider for a monitor row."""
-        def on_change(value):
-            row.brightness_label.setText(f"{value}%")
-
-        row.slider.valueChanged.connect(lambda value: on_change(value))
-
     def __connect_monitor(self, row: MonitorRow, monitor: MonitorBase) -> bool:
         """Connect a monitor to a row and return whether the connection was successful."""
-        initial_brightness = monitor.get_brightness(force=True)
-        if initial_brightness is None:
-            # This should not happen, as we already checked for brightness in get_supported_monitors
+        monitor.last_get_brightness = monitor.last_get_brightness or monitor.get_brightness(force=True)
+        if monitor.last_get_brightness is None:
             logger.error(f"Failed to get initial brightness of monitor \"{monitor.name()}\"")
             return False
-
-        row.slider.setValue(initial_brightness)
-        row.slider.valueChanged.emit(initial_brightness)
-        row.slider.sliderReleased.emit()
-
-        def set_brightness(value):
-            self.monitor_worker.set_brightness_signal.emit(monitor, value)
-
-        row.slider.valueChanged.connect(set_brightness)
         row.monitor = monitor
+        # Set the range of the slider
+        row.slider.setRange(monitor.min_brightness, monitor.max_brightness)
+
+        def handle_action(action: int):
+            if action in [QAbstractSlider.SliderAction.SliderMove.value]:
+                return
+            set_brightness()
+
+        def set_brightness():
+            value = row.slider.value()
+            self.monitor_worker.set_and_update_sig.emit(row, value, False)
+
+        # Change the brightness of the monitor when the slider is released
+        row.slider.sliderReleased.connect(set_brightness)
+        row.slider.actionTriggered.connect(handle_action) # Needed if slider moved by clicking on the scale
+
+        # Set the initial brightness
+        row.sync(monitor.last_get_brightness)
+        row.slider.setValue(monitor.last_get_brightness)
+
         return True
 
     def __reinit_sensor(self):
@@ -424,22 +445,29 @@ class BrightifyApp(QMainWindow):
 
     def close(self):
         """Handle the close event."""
+        logger.debug("Trying to stop SensorTimer")
         if self.__sensor_timer.isActive():
             self.__sensor_timer.stop()
 
+        logger.debug("Trying to stop Sensor Communcation")
         self.__sensor_comm.close()
+
+        logger.debug("Trying to stop clear rows")
         self.clear_rows()  # also calls __del__ on each monitor
 
         if self.__sensor_thread.isRunning():
+            logger.debug("Trying to stop Sensor Thread")
             self.__sensor_thread.quit()
             self.__sensor_thread.wait()
 
         if self.monitor_thread.isRunning():
+            logger.debug("Trying to stop Monitor Thread")
             self.monitor_thread.quit()
             self.monitor_thread.wait()
 
         if self.is_os_managed():
             if self.__os_update_timer.isActive():
+                logger.debug("Trying to stop OS Update Timer")
                 self.__os_update_timer.stop()
 
-        logger.debug("Closed BrightifyApp")
+        logger.info("Closed BrightifyApp successfully")

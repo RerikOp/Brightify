@@ -41,15 +41,32 @@ class MonitorBase(ABC):
         pass
 
     @abstractmethod
-    def name(self):
+    def name(self) -> str:
         """
         :return: the name of the monitor
         """
         pass
 
     @staticmethod
-    def get_type():
+    def get_type() -> str:
+        """
+        :return: the type of the monitor (e.g. "DDCCI", "USB") as a string
+        """
         return "ANY"
+
+    def clamp_brightness(self, b: Optional[int]) -> Optional[int]:
+        """
+        Clamps the brightness value within the allowed range.
+        :param b: Brightness value.
+        :return: Clamped brightness value.
+        """
+        try:
+            if b is None:
+                return None
+            return max(min(b, self.max_brightness), self.min_brightness)
+        except Exception as e:
+            logger.error(f"Error clamping brightness: {e}", exc_info=True)
+            return None
 
     def convert_sensor_readings(self, readings: Iterable[Union[int, float]]) -> Optional[int]:
         """
@@ -61,11 +78,8 @@ class MonitorBase(ABC):
         """
         diff_th = 5
 
-        def clamp_brightness(b):
-            return max(min(b, self.max_brightness), self.min_brightness)
-
         def measurement_to_brightness(m):
-            return clamp_brightness(int(m * 2))
+            return self.clamp_brightness(int(m * 2))
 
         def mean(data) -> float:
             return sum(data) / len(data)

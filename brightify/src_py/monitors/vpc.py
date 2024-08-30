@@ -1,5 +1,6 @@
 import abc
 import enum
+import time
 from dataclasses import dataclass, field
 from types import TracebackType
 from typing import Optional, Tuple, Type, Dict, List, Union, Literal
@@ -39,6 +40,8 @@ class InputSourceValueError(VCPError):
 class VCP(abc.ABC):
     def __init__(self, name: Optional[str] = None):
         self.name = name
+        self.ddcci_delay_ns: int = 50000000  # 50ms
+        self.last_interaction_ns = time.time_ns()
 
     @abc.abstractmethod
     def __enter__(self):
@@ -84,8 +87,37 @@ class VCP(abc.ABC):
         """
         pass
 
+    def time_to_wait_sec(self) -> float:
+        """
+        Calculates the time to wait in seconds until the next interaction.
+        :return: Time to wait in seconds.
+        """
+        try:
+            return (self.last_interaction_ns + self.ddcci_delay_ns - time.time_ns()) / 1e9
+        except Exception as e:
+            return 0
+
+    def is_ready(self) -> bool:
+        """
+        Checks if the monitor is ready for interaction.
+        :return: True if ready, False otherwise.
+        """
+        try:
+            return time.time_ns() - self.last_interaction_ns >= self.ddcci_delay_ns
+        except Exception as e:
+            return False
+
+    def wait(self):
+        """
+        Waits until the monitor is ready for interaction.
+        """
+        if not self.is_ready():
+            time.sleep(self.time_to_wait_sec())
+        self.last_interaction_ns = time.time_ns()
+
     def close(self):
         pass
+
 
 @dataclass(frozen=True)
 class VCPCode:

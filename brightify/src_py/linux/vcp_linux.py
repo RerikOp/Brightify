@@ -64,40 +64,9 @@ class LinuxVCP(VCP):
         self.fd: Optional[int] = None
         self.fp: str = f"/dev/i2c-{self.bus_number}"
         self.checksum_errors = checksum_errors
-        self.ddcci_delay_ns: int = 50000000  # 50ms
-        self.last_interaction_ns = time.time_ns()
         self.max_tries = 10
         self.in_context = False
         self.verify_permissions()
-
-    def time_to_wait_sec(self) -> float:
-        """
-        Calculates the time to wait in seconds until the next interaction.
-        :return: Time to wait in seconds.
-        """
-        try:
-            return (self.last_interaction_ns + self.ddcci_delay_ns - time.time_ns()) / 1e9
-        except Exception as e:
-            logger.error(f"Error calculating time to wait: {e}", exc_info=True)
-            return 0
-
-    def is_ready(self) -> bool:
-        """
-        Checks if the monitor is ready for interaction.
-        :return: True if ready, False otherwise.
-        """
-        try:
-            return time.time_ns() - self.last_interaction_ns >= self.ddcci_delay_ns
-        except Exception as e:
-            logger.error(f"Error checking readiness: {e}", exc_info=True)
-            return False
-
-    def wait(self):
-        """
-        Waits until the monitor is ready for interaction.
-        """
-        if not self.is_ready():
-            time.sleep(self.time_to_wait_sec())
 
     def close(self):
         """
@@ -177,7 +146,6 @@ class LinuxVCP(VCP):
 
         data = self._prepare_data(SET_VCP_CMD, code, value)
         self.write_bytes(data)
-        self.last_interaction_ns = time.time_ns()
 
     def get_vcp_feature(self, code: int) -> Tuple[int, int]:
         """
@@ -205,8 +173,6 @@ class LinuxVCP(VCP):
         if result_code > 0:
             message = GET_VCP_RESULT_CODES.get(result_code, f"Received result with unknown code: {result_code}")
             raise VCPIOError(message)
-
-        self.last_interaction_ns = time.time_ns()
 
         return feature_current, feature_max
 

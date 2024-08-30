@@ -67,6 +67,9 @@ class MonitorRow(QWidget):
 
         self.setLayout(layout)
 
+    def sync(self, value: int):
+        self.brightness_label.setText(f"{value}%")
+
     @property
     def monitor(self):
         return self.__monitor

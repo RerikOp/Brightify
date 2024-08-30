@@ -15,7 +15,7 @@ class M27Q(MonitorUSB):
         :param device: USB device instance.
         """
         super().__init__(device)
-        self.max_tries = 10
+        self.max_tries = 9
         self.luminance_code = VCPCodeDefinition.image_luminance.value
 
     @staticmethod
@@ -158,6 +158,7 @@ class M27Q(MonitorUSB):
         :return: Brightness value.
         """
         max_tries = 1 if not blocking and not force else self.max_tries
+        brightness_values = []
         blocking = blocking or force  # force implies blocking
 
         def _get() -> Optional[int]:
@@ -172,10 +173,21 @@ class M27Q(MonitorUSB):
             if blocking:
                 self.wait()
                 if (brightness := _get()) is not None:
-                    self.last_get_brightness = brightness
-                    return brightness
+                    brightness_values.append(brightness)
+                    if not force:
+                        self.last_get_brightness = brightness
+                        return brightness
             else:
                 if self.is_ready() and (brightness := _get()) is not None:
-                    self.last_get_brightness = brightness
-                    return brightness
+                    brightness_values.append(brightness)
+                    if not force:
+                        self.last_get_brightness = brightness
+                        return brightness
+
+        if force and brightness_values:
+            # Determine the majority value
+            majority_brightness = max(set(brightness_values), key=brightness_values.count)
+            self.last_get_brightness = majority_brightness
+            return majority_brightness
+
         return None

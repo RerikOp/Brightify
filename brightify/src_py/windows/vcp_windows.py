@@ -17,11 +17,12 @@ class WindowsVCP(VCP):
     References:
         https://github.com/newAM/monitorcontrol
     """
+
     def __init__(self, hmonitor: HMONITOR, name: Optional[str] = None):
         super().__init__(name=name)
         self.hmonitor = hmonitor
-        self.handle = None
         self.in_context = False
+        self.physical_monitors = PhysicalMonitor()
 
     def __enter__(self):
         self.in_context = True
@@ -38,20 +39,18 @@ class WindowsVCP(VCP):
         elif num_physical.value > 1:
             raise VCPError("More than one physical monitor per hmonitor")
 
-        physical_monitors = PhysicalMonitor()
         try:
-            if not ctypes.windll.dxva2.GetPhysicalMonitorsFromHMONITOR(self.hmonitor, 1, physical_monitors):
+            if not ctypes.windll.dxva2.GetPhysicalMonitorsFromHMONITOR(self.hmonitor, 1,
+                                                                       ctypes.byref(self.physical_monitors)):
                 raise VCPError("Call to GetPhysicalMonitorsFromHMONITOR failed: " + ctypes.FormatError())
         except OSError as e:
             raise VCPError("Failed to open physical monitor handle") from e
-
-        self.handle = physical_monitors.handle
         return self
 
     def __exit__(self, exception_type: Optional[Type[BaseException]], exception_value: Optional[BaseException],
                  exception_traceback: Optional[TracebackType]) -> Optional[bool]:
         try:
-            if not ctypes.windll.dxva2.DestroyPhysicalMonitor(self.handle):
+            if not ctypes.windll.dxva2.DestroyPhysicalMonitor(self.physical_monitors.handle):
                 raise VCPError("Call to DestroyPhysicalMonitor failed: " + ctypes.FormatError())
         except OSError as e:
             raise VCPError("Failed to close handle") from e
@@ -63,7 +62,7 @@ class WindowsVCP(VCP):
         if not self.in_context:
             raise VCPError("Not in VCP context")
         try:
-            if not ctypes.windll.dxva2.SetVCPFeature(HANDLE(self.handle), BYTE(code), DWORD(value)):
+            if not ctypes.windll.dxva2.SetVCPFeature(self.physical_monitors.handle, BYTE(code), DWORD(value)):
                 raise VCPError("Failed to set VCP feature: " + ctypes.FormatError())
         except OSError as e:
             raise VCPError("Failed to set VCP feature") from e
@@ -74,7 +73,9 @@ class WindowsVCP(VCP):
         feature_current = DWORD()
         feature_max = DWORD()
         try:
-            if not ctypes.windll.dxva2.GetVCPFeatureAndVCPFeatureReply(HANDLE(self.handle), BYTE(code), None,
+            if not ctypes.windll.dxva2.GetVCPFeatureAndVCPFeatureReply(self.physical_monitors.handle,
+                                                                       BYTE(code),
+                                                                       None,
                                                                        ctypes.byref(feature_current),
                                                                        ctypes.byref(feature_max)):
                 raise VCPError("Failed to get VCP feature: " + ctypes.FormatError())
@@ -87,10 +88,11 @@ class WindowsVCP(VCP):
             raise VCPError("Not in VCP context")
         cap_length = DWORD()
         try:
-            if not ctypes.windll.dxva2.GetCapabilitiesStringLength(HANDLE(self.handle), ctypes.byref(cap_length)):
+            if not ctypes.windll.dxva2.GetCapabilitiesStringLength(self.physical_monitors.handle, ctypes.byref(cap_length)):
                 raise VCPError("Failed to get VCP capabilities: " + ctypes.FormatError())
             cap_string = (ctypes.c_char * cap_length.value)()
-            if not ctypes.windll.dxva2.CapabilitiesRequestAndCapabilitiesReply(HANDLE(self.handle), cap_string,
+            if not ctypes.windll.dxva2.CapabilitiesRequestAndCapabilitiesReply(self.physical_monitors.handle,
+                                                                               cap_string,
                                                                                cap_length):
                 raise VCPError("Failed to get VCP capabilities: " + ctypes.FormatError())
         except OSError as e:

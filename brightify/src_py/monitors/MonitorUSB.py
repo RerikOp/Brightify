@@ -63,20 +63,6 @@ class MonitorUSB(MonitorBase):
             logger.error(f"Error checking readiness: {e}", exc_info=True)
             return False
 
-    def clamp_brightness(self, b: Optional[int]) -> Optional[int]:
-        """
-        Clamps the brightness value within the allowed range.
-        :param b: Brightness value.
-        :return: Clamped brightness value.
-        """
-        try:
-            if b is None:
-                return None
-            return max(min(b, self.max_brightness), self.min_brightness)
-        except Exception as e:
-            logger.error(f"Error clamping brightness: {e}", exc_info=True)
-            return None
-
     @staticmethod
     @abstractmethod
     def vid() -> int:

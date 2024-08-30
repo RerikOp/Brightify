@@ -13,7 +13,7 @@ class MonitorDDCCI(MonitorBase):
         super().__init__(0, 100)
         self.vcp = vcp
         self.luminance_code = VCPCodeDefinition.image_luminance
-        self.max_tries = 10
+        self.max_tries = 5
         self.code_max = {}
 
         if (name := self.vcp.name) is not None:
@@ -71,6 +71,7 @@ class MonitorDDCCI(MonitorBase):
                 logger.error(f"Cannot set value greater than maximum: {code}")
                 return False
         try:
+            self.vcp.wait()
             self.vcp.set_vcp_feature(code.value, value)
             return True
         except VCPError as e:
@@ -90,6 +91,7 @@ class MonitorDDCCI(MonitorBase):
             logger.error(f"Cannot read write-only code: {code}")
             return None
         try:
+            self.vcp.wait()
             current, maximum = self.vcp.get_vcp_feature(code.value)
             self.code_max[code.value] = maximum
             return current
@@ -149,11 +151,22 @@ class MonitorDDCCI(MonitorBase):
         :return: Brightness value if successful, None otherwise.
         """
         max_tries = 1 if not blocking and not force else self.max_tries
+        brightness_values = []
+
         with self.vcp:
             for _ in range(max_tries):
                 if (brightness := self._get_vcp_feature(self.luminance_code)) is not None:
-                    self.last_get_brightness = brightness
-                    return brightness
+                    brightness_values.append(brightness)
+                    if not force:
+                        self.last_get_brightness = brightness
+                        return brightness
+
+        if force and brightness_values:
+            # Determine the majority value
+            majority_brightness = max(set(brightness_values), key=brightness_values.count)
+            self.last_get_brightness = majority_brightness
+            return majority_brightness
+
         logger.debug(f"Failed to get brightness of DDCCI monitor \"{self.name()}\"")
         return None
 
