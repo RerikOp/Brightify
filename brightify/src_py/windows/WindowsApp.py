@@ -109,10 +109,13 @@ class WindowsApp:
             x, y = win32gui.GetCursorPos()
             menu = win32gui.CreatePopupMenu()
             win32gui.AppendMenu(menu, win32con.MF_STRING, self.cmd_id_map["Exit"], "Exit")
-            win32gui.SetForegroundWindow(self.hwnd)
-            win32gui.TrackPopupMenu(menu, win32con.TPM_LEFTALIGN, x, y, 0, self.hwnd, None)
+            try:
+                win32gui.SetForegroundWindow(self.hwnd)
+            except pywintypes.error as e:
+                logger.debug(f"Failed to set foreground window: {e}")
+            # Use the determined flags in TrackPopupMenu
+            win32gui.TrackPopupMenu(menu, win32con.TPM_LEFTALIGN | win32con.TPM_RIGHTBUTTON, x, y, 0, self.hwnd, None)
             win32gui.PostMessage(self.hwnd, win32con.WM_NULL, 0, 0)
-
         return 0
 
     def _create_icon(self, icon_path):
@@ -126,7 +129,6 @@ class WindowsApp:
             # get default icon
             hicon = win32gui.LoadIcon(0, win32con.IDI_APPLICATION)
             logger.critical("Failed to load icon")
-
         flags = win32gui.NIF_ICON | win32gui.NIF_MESSAGE | win32gui.NIF_TIP
         nid = (self.hwnd, 0, flags, self.WM_ICON, hicon, app_name)
         try:
