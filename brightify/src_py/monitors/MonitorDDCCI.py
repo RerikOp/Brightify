@@ -152,6 +152,7 @@ class MonitorDDCCI(MonitorBase):
         with self.vcp:
             for _ in range(max_tries):
                 if (brightness := self._get_vcp_feature(self.luminance_code)) is not None:
+                    self.last_get_brightness = brightness
                     return brightness
         logger.debug(f"Failed to get brightness of DDCCI monitor \"{self.name()}\"")
         return None
@@ -167,6 +168,7 @@ class MonitorDDCCI(MonitorBase):
         with self.vcp:
             for _ in range(max_tries):
                 if self._set_vcp_feature(self.luminance_code, brightness):
+                    self.last_set_brightness = brightness
                     return
         logger.debug(f"Failed to set brightness of DDCCI monitor \"{self.name()}\"")
 

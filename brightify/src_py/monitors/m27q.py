@@ -126,26 +126,29 @@ class M27Q(MonitorUSB):
         :param blocking: If True, block until the brightness is set.
         :param force: If True, force the setting.
         """
+        max_tries = 1 if not blocking and not force else self.max_tries
         blocking = blocking or force  # force implies blocking
 
-        def _set():
+        def _set() -> bool:
             try:
-                self.set_osd([self.luminance_code, 0x00, brightness])
+                with self.lock:
+                    self.set_osd([self.luminance_code, 0x00, brightness])
+                return True
             except Exception as e:
                 logger.error(f"Failed to set brightness: {e}")
+                return False
 
-        with self.lock:
-            brightness = self.clamp_brightness(brightness)
+        brightness = self.clamp_brightness(brightness)
+        for _ in range(max_tries):
             if blocking:
                 self.wait()
-            _set()
-
-        if force:
-            for _ in range(self.max_tries):
-                if self.get_brightness(blocking=True) == brightness:
+                if _set():
+                    self.last_set_brightness = brightness
                     return
-                with self.lock:
-                    _set()
+            else:
+                if self.is_ready() and _set():
+                    self.last_set_brightness = brightness
+                    return
 
     def get_brightness(self, blocking=False, force: bool = False) -> Optional[int]:
         """
@@ -154,33 +157,25 @@ class M27Q(MonitorUSB):
         :param force: If True, force the retrieval.
         :return: Brightness value.
         """
+        max_tries = 1 if not blocking and not force else self.max_tries
         blocking = blocking or force  # force implies blocking
 
-        def get() -> Optional[int]:
+        def _get() -> Optional[int]:
             try:
-                return self.get_osd([self.luminance_code])
+                with self.lock:
+                    return self.get_osd([self.luminance_code])
             except Exception as e:
                 logger.error(f"Failed to get brightness: {e}")
                 return None
 
-        with self.lock:
-            if not blocking:
-                resp = get() if self.is_ready() else None
-            else:
+        for _ in range(max_tries):
+            if blocking:
                 self.wait()
-                resp = get()
-                if force:
-                    responses = [resp] if resp is not None else []
-                    retry = 0
-                    while len(responses) < 5:
-                        retry += 1
-                        if retry > self.max_tries:
-                            break
-                        if (resp := get()) is not None:
-                            responses.append(resp)
-                            self.wait()
-                    resp = max(set(responses), key=responses.count) if resp is not None else None
-
-        if resp is not None:
-            return self.clamp_brightness(resp)
+                if (brightness := _get()) is not None:
+                    self.last_get_brightness = brightness
+                    return brightness
+            else:
+                if self.is_ready() and (brightness := _get()) is not None:
+                    self.last_get_brightness = brightness
+                    return brightness
         return None

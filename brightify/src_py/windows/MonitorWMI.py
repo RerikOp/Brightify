@@ -32,10 +32,13 @@ class WMIMonitor(MonitorBase):
         return "WMI"
 
     def get_brightness(self, blocking: bool = False, force: bool = False) -> int | None:
-        return self.__get_brightness()
+        brightness = self.__get_brightness()
+        self.last_get_brightness = brightness
+        return brightness
 
     def set_brightness(self, brightness: int, blocking: bool = False, force: bool = False) -> None:
         self.__set_brightness(brightness)
+        self.last_set_brightness = brightness
 
     def name(self):
         return "Internal"
