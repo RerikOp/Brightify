@@ -4,9 +4,9 @@ import os
 import winshell
 import sys
 from pathlib import Path
-
 from brightify import app_name
 from brightify.src_py.windows.helpers import exec_path, run_call, add_icon
+from brightify.src_py.windows import logger
 
 
 def add_startup_task(runtime_args):
@@ -15,24 +15,37 @@ def add_startup_task(runtime_args):
             "--path", f"\"{exec_path(runtime_args)}\"",
             "--args", run_call(runtime_args)]
 
-    ctypes.windll.shell32.ShellExecuteW(None,  # hwnd
-                                        "runas",  # operation
-                                        sys.executable,  # program, the python interpreter
-                                        f'"{add_startup_task.__file__}" {" ".join(args)}',  # script to run
-                                        None,  # working directory
-                                        1)  # show window
+    ret = ctypes.windll.shell32.ShellExecuteW(None,  # hwnd
+                                              "runas",  # operation
+                                              sys.executable,  # program, the python interpreter
+                                              f'"{add_startup_task.__file__}" {" ".join(args)}',  # script to run
+                                              None,  # working directory
+                                              1)  # show window
+    if ret <= 32:
+        logger.error(f"Failed to add startup task: {ctypes.FormatError()}")
+        return False
+    else:
+        logger.info("Added startup task successfully")
+        return True
 
 
 def remove_startup_task():
     from brightify.src_py.windows import remove_startup_task
     args = ["--task-name", app_name]
     # run the script as admin
-    ctypes.windll.shell32.ShellExecuteW(None,  # hwnd
-                                        "runas",  # operation
-                                        sys.executable,  # program, the python interpreter
-                                        f'"{remove_startup_task.__file__}" {" ".join(args)}',  # script to run
-                                        None,  # working directory
-                                        1)  # show window
+    ret = ctypes.windll.shell32.ShellExecuteW(None,  # hwnd
+                                              "runas",  # operation
+                                              sys.executable,  # program, the python interpreter
+                                              f'"{remove_startup_task.__file__}" {" ".join(args)}',  # script to run
+                                              None,  # working directory
+                                              1)  # show window
+
+    if ret <= 32:
+        logger.error(f"Failed to remove startup task: {ctypes.FormatError()}")
+        return False
+    else:
+        logger.info("Removed startup task successfully")
+        return True
 
 
 def add_menu_icon(runtime_args: argparse.Namespace):
@@ -44,7 +57,16 @@ def remove_menu_icon():
     programs_folder = winshell.programs()
     shortcut_path = Path(programs_folder) / f"{app_name}.lnk"
     if shortcut_path.exists():
-        os.remove(shortcut_path)
+        try:
+            os.remove(shortcut_path)
+            logger.info("Removed menu icon successfully")
+            return True
+        except PermissionError:
+            logger.error(f"Failed to remove menu icon: Permission denied")
+    else:
+        logger.info("Menu icon not found - nothing to remove")
+    return False
+
 
 
 def add_startup_icon(runtime_args: argparse.Namespace):
@@ -56,7 +78,15 @@ def remove_startup_icon():
     startup_folder = winshell.startup()
     shortcut_path = Path(startup_folder) / f"{app_name}.lnk"
     if shortcut_path.exists():
-        os.remove(shortcut_path)
+        try:
+            os.remove(shortcut_path)
+            logger.info("Removed startup icon successfully")
+            return True
+        except PermissionError:
+            logger.error(f"Failed to remove startup icon: Permission denied")
+    else:
+        logger.info("Startup icon not found - nothing to remove")
+    return False
 
 
 def run(app, runtime_args):

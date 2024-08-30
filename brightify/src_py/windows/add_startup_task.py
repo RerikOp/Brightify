@@ -29,7 +29,7 @@ if __name__ == '__main__':
         except Exception as e:
             f.write("Failed to parse arguments\n")
             f.write(str(e) + "\n")
-            raise e
+            exit(1)
 
         # write the arguments to the log file, omits the script path
         f.write(f"Adding {args.task_name} startup task with the following arguments: {args}\n")
@@ -37,7 +37,7 @@ if __name__ == '__main__':
         if not ctypes.windll.shell32.IsUserAnAdmin():
             s = "This script must be run as admin"
             f.write(s + "\n")
-            raise PermissionError(s)
+            exit(1)
 
         # get the current user
         ru = os.getlogin()
@@ -48,12 +48,20 @@ if __name__ == '__main__':
         if not schtasks_path.exists():
             s = "schtasks.exe not found"
             f.write(s + "\n")
-            raise FileNotFoundError
+            exit(1)
 
-        subprocess.run([schtasks_path, '/Create',
-                        '/SC', 'ONSTART',
-                        '/TN', tn,
-                        '/TR', tr,
-                        '/RU', ru,
-                        '/F'],
-                       check=True, stdout=f, stderr=f)
+        ret = subprocess.run([schtasks_path, '/Create',
+                              '/SC', 'ONSTART',
+                              '/TN', tn,
+                              '/TR', tr,
+                              '/RU', ru,
+                              '/F'],
+                             check=True, stdout=f, stderr=f)
+        if ret.returncode != 0:
+            s = "Failed to add startup task"
+            f.write(s + "\n")
+            exit(1)
+        else:
+            s = "Added startup task successfully"
+            f.write(s + "\n")
+            exit(0)

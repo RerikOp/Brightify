@@ -9,9 +9,9 @@ import winshell
 import winreg
 from brightify import icon_light, app_name, icon_dark
 from brightify.src_py.ui_config import Theme
-from brightify.src_py.windows import logger
 from ctypes.wintypes import DWORD, WCHAR, HMONITOR, BOOL, HDC, RECT, LPARAM, CHAR
 from typing import Optional, Dict
+from brightify.src_py.windows import logger
 
 import wmi
 
@@ -32,17 +32,26 @@ def run_call(runtime_args: argparse.Namespace):
 
 
 def add_icon(runtime_args: argparse.Namespace, directory):
-    # create a shortcut in the directory folder
-    Path(directory).mkdir(parents=True, exist_ok=True)
-    shortcut_path = Path(directory) / f"{app_name}.lnk"
-    with winshell.shortcut(str(shortcut_path)) as shortcut:
-        shortcut: winshell.Shortcut
-        shortcut.path = exec_path(runtime_args)
-        shortcut.arguments = run_call(runtime_args)
-        shortcut.description = f"Startup link for {app_name}"
-        icon_path = icon_light if get_mode() == "dark" else icon_dark
-        if icon_path.exists():
-            shortcut.icon_location = (str(icon_path), 0)
+    try:
+        # create a shortcut in the directory folder
+        directory = Path(directory)
+        directory.mkdir(parents=True, exist_ok=True)
+        shortcut_path = directory / f"{app_name}.lnk"
+        with winshell.shortcut(str(shortcut_path)) as shortcut:
+            shortcut: winshell.Shortcut
+            shortcut.path = exec_path(runtime_args)
+            shortcut.arguments = run_call(runtime_args)
+            shortcut.description = f"Startup link for {app_name}"
+            icon_path = icon_light if get_mode() == "dark" else icon_dark
+            if icon_path.exists():
+                shortcut.icon_location = (str(icon_path), 0)
+        logger.info(f"Added icon successfully to {directory.stem}")
+        return True
+    except PermissionError:
+        logger.error(f"Failed to add icon: Permission denied")
+    except Exception as e:
+        logger.error(f"Failed to add icon: {e}")
+    return False
 
 
 # HELPER FUNCTIONS FOR WINDOWS API:
@@ -254,7 +263,11 @@ def _display_to_handle_and_f_name_mapping(dmapping, hmapping, nmapping):
 
 
 def display_to_handle_and_f_name_mapping():
-    dmapping = _display_to_device_id_mapping(True)
-    hmapping = _handle_to_display_mapping()
-    nmapping = _device_id_to_f_name_mapping()
-    return _display_to_handle_and_f_name_mapping(dmapping, hmapping, nmapping)
+    try:
+        dmapping = _display_to_device_id_mapping(True)
+        hmapping = _handle_to_display_mapping()
+        nmapping = _device_id_to_f_name_mapping()
+        return _display_to_handle_and_f_name_mapping(dmapping, hmapping, nmapping)
+    except Exception as e:
+        logger.debug(f"Failed to map display to handle and friendly name: {e}")
+        return {}

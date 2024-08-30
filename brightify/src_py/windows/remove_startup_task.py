@@ -26,19 +26,25 @@ if __name__ == '__main__':
         except Exception as e:
             f.write("Failed to parse arguments\n")
             f.write(str(e) + "\n")
-            raise e
+            exit(1)
         f.write(f"Removing {args.task_name} startup task\n")
         if not ctypes.windll.shell32.IsUserAnAdmin():
             s = "This script must be run as admin"
             f.write(s + "\n")
-            raise PermissionError(s)
+            exit(1)
 
         schtasks_path = Path(os.getenv('SYSTEMROOT', 'C:\\Windows')) / 'System32' / 'schtasks.exe'
         if not schtasks_path.exists():
             s = "schtasks.exe not found"
             f.write(s + "\n")
-            raise FileNotFoundError
+            exit(1)
 
-        subprocess.run([schtasks_path, '/Delete',
-                        '/TN', args.task_name,
-                        '/F'], check=True, stdout=f, stderr=f)
+        ret = subprocess.run([schtasks_path, '/Delete',
+                              '/TN', args.task_name,
+                              '/F'], check=True, stdout=f, stderr=f)
+        if ret.returncode != 0:
+            f.write("Failed to remove task\n")
+            exit(1)
+        else:
+            f.write("Removed task successfully\n")
+            exit(0)
