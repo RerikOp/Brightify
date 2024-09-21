@@ -31,7 +31,7 @@ class MonitorWorker(QObject):
         self.__request_store: Dict[MonitorBase, Optional[int]] = {}
 
     def request_change(self, monitor: MonitorBase, brightness: int):
-        self.__request_store[monitor] = brightness # Store the request. Overwrite if already exists
+        self.__request_store[monitor] = brightness  # Store the request. Overwrite if already exists
 
     @pyqtSlot(MonitorRow, bool)
     def _update(self, row: MonitorRow, force_sync: bool):
@@ -56,11 +56,16 @@ class BrightifyApp(QMainWindow):
         self.__os_event = os_event
         self.__bottom_right: Optional[QPoint] = None
         self.__ui_config: UIConfig = UIConfig()
-
+        self.__init_constants()
         self.__init_monitor_worker()
         self.__init_ui()
         self.__init_sensor()
         self.__init_os_event()
+
+    def __init_constants(self):
+        self.__os_update_timer_duration = 100
+        self.__last_change_duration = 200
+        self.__sensor_timer_duration = 500
 
     def __init_ui(self):
         """Initialize the UI components."""
@@ -100,7 +105,7 @@ class BrightifyApp(QMainWindow):
             logger.debug("OS event is set, starting OS update timer")
             self.__os_update_timer = QTimer(self)
             self.__os_update_timer.timeout.connect(self.__handle_os_update)
-            self.__os_update_timer.start(100)
+            self.__os_update_timer.start(self.__os_update_timer_duration)
 
     def redraw(self):
         """Redraw the window and reinitialize the sensor if necessary."""
@@ -119,7 +124,7 @@ class BrightifyApp(QMainWindow):
             return
         else:
             now = QTime.currentTime()
-            if self.__last_change is not None and self.__last_change.msecsTo(now) < 200:
+            if self.__last_change is not None and self.__last_change.msecsTo(now) < self.__last_change_duration:
                 return
             self.__last_change = now
         if not self.ui_config.theme.has_animations:
@@ -151,11 +156,11 @@ class BrightifyApp(QMainWindow):
             self.monitor_worker.request_change(monitor, value)
             self.monitor_worker.update_signal.emit(row, False)
             row.on_value_change(value)
+
         row.slider.actionTriggered.connect(handle_action)
 
         self.__set_and_notify(row, monitor.last_get_brightness)
         return True
-
 
     def __determine_new_state(self, requested_state: Literal["show", "hide", "invert"]) -> Literal["show", "hide"]:
         """Determine the new state based on the current state and the requested state."""
@@ -381,8 +386,8 @@ class BrightifyApp(QMainWindow):
     def __set_minimum_label_widths(self, max_name_width: int, max_type_width: int):
         """Set the minimum widths of the name and type labels."""
         for row in self.monitor_rows:
-            row.name_label.setMinimumWidth(max_name_width + 5)
-            row.type_label.setMinimumWidth(max_type_width + 5)
+            row.name_label.setMinimumWidth(max_name_width + self.ui_config.pad)
+            row.type_label.setMinimumWidth(max_type_width + self.ui_config.pad)
             row.show()
 
     def __reinit_sensor(self):
@@ -394,7 +399,7 @@ class BrightifyApp(QMainWindow):
                 self.__sensor_thread.start()
             if not self.__sensor_timer.isActive():
                 logger.debug("Starting sensor timer")
-                self.__sensor_timer.start(500)
+                self.__sensor_timer.start(self.__sensor_timer_duration)
         else:
             self.__sensor_timer.stop()
 

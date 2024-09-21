@@ -1,5 +1,7 @@
 import argparse
 
+from brightify.src_py.linux.helpers import logger
+
 
 def run(app, runtime_args):
     from brightify.src_py.BrightifyApp import BrightifyApp

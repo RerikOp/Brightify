@@ -1,12 +1,10 @@
-import logging
 import os
 from typing import Literal
 
 from brightify import host_os
+from brightify.src_py.linux import logger
 from brightify.src_py.ui_config import Theme
 
-# Use OS specific logger
-logger = logging.getLogger("Linux")
 
 if host_os != "Linux":
     raise RuntimeError("This code is designed to run on Linux only")

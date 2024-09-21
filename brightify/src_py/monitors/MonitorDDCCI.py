@@ -95,8 +95,8 @@ class MonitorDDCCI(MonitorBase):
             current, maximum = self.vcp.get_vcp_feature(code.value)
             self.code_max[code.value] = maximum
             return current
-        except VCPError as _:
-            pass
+        except VCPError as e:
+            logger.debug(e)
         except Exception as e:
             logger.error(f"Unexpected error: {e}")
         return None
@@ -159,7 +159,6 @@ class MonitorDDCCI(MonitorBase):
                     if not force:
                         self.last_get_brightness = brightness
                         return brightness
-
         if force and brightness_values:
             # Determine the majority value
             majority_brightness = max(set(brightness_values), key=brightness_values.count)

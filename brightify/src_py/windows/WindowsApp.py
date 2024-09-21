@@ -104,7 +104,8 @@ class WindowsApp:
     def _on_icon_notify(self, hwnd=None, msg=None, wparam=None, lparam=None):
         if lparam == win32con.WM_LBUTTONUP:
             self.os_event.click_on_icon = True
-            self.os_event.last_click = win32gui.GetCursorPos()
+            if self.os_event.last_click is not None:
+                self.os_event.last_click = win32gui.GetCursorPos()
         elif lparam == win32con.WM_RBUTTONUP:
             x, y = win32gui.GetCursorPos()
             menu = win32gui.CreatePopupMenu()

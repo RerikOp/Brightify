@@ -92,7 +92,6 @@ def remove_startup_icon():
 def run(app, runtime_args):
     import ctypes
     import win32gui
-    import logging
     from brightify import OSEvent
     from brightify.src_py.BrightifyApp import BrightifyApp
     from brightify.src_py.windows.WindowsApp import WindowsApp
@@ -102,7 +101,6 @@ def run(app, runtime_args):
     brightify_app = BrightifyApp(os_event, runtime_args, window_type=Qt.WindowType.Tool)
     win_app = WindowsApp(os_event)
     running = True
-    logger = logging.getLogger("Windows")
 
     class WindowsThread(QThread):
         def run(self):
